@@ -96,7 +96,7 @@
 .map-controls-container {
     display: flex;
     flex-direction: column;
-    height: 90%;
+    height: 100%;
     overflow: hidden;
 }
 
@@ -872,4 +872,5 @@
 
 #toggleLocationBtn {
     display: none !important;
+
 }
