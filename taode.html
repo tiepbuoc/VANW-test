@@ -2103,6 +2103,29 @@
             firestoreDbSecondary = fakeDb;
         }
 
+        // Biến lưu API đang hoạt động
+        let activeApiIndex = 0;
+        let apiRetryCount = 0;
+        const MAX_RETRY_COUNT = 2;
+        
+        // Danh sách các API endpoints với ưu tiên
+        const API_ENDPOINTS = [
+            {
+                name: "Gemini API",
+                url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+                model: "gemini-2.5-flash",
+                priority: 1,
+                active: true
+            },
+            {
+                name: "Gemini API Flash Lite",
+                url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+                model: "gemini-2.5-flash-lite",
+                priority: 2,
+                active: true
+            }
+        ];
+
         let generationProgress = {
             total: 0,
             completed: 0,
@@ -2218,57 +2241,114 @@
             }
         }
 
-        async function fetchGemini(prompt, maxRetries = 3) {
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => reject(new Error('Request timeout after 90 seconds')), 90000);
-                    });
-                    
-                    const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: [{ 
-                                parts: [{ text: prompt }] 
-                            }],
-                            generationConfig: {
-                                maxOutputTokens: 8000,
-                                temperature: 0.7,
-                                topP: 0.95,
-                                topK: 40,
-                            }
-                        })
-                    });
-                    
-                    const response = await Promise.race([fetchPromise, timeoutPromise]);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-                        throw new Error('Invalid response format from API');
-                    }
-                    
-                    const result = data.candidates[0].content.parts[0].text.trim();
-                    
-                    if (result.includes('\\n')) {
-                        result = result.replace(/\\n/g, '\n');
-                    }
-                    
-                    return result;
-                    
-                } catch (error) {
-                    if (attempt === maxRetries) {
-                        throw new Error(`Failed after ${maxRetries} attempts: ${error.message}`);
-                    }
-                    
-                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        async function callGeminiAPI(prompt, apiIndex = activeApiIndex) {
+            const api = API_ENDPOINTS[apiIndex];
+            if (!api || !api.active) {
+                throw new Error(`API ${apiIndex} không khả dụng`);
+            }
+
+            try {
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error(`Request timeout after 90 seconds (${api.name})`)), 90000);
+                });
+                
+                const fetchPromise = fetch(api.url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: [{ 
+                            parts: [{ text: prompt }] 
+                        }],
+                        generationConfig: {
+                            maxOutputTokens: 8000,
+                            temperature: 0.7,
+                            topP: 0.95,
+                            topK: 40,
+                        }
+                    })
+                });
+                
+                const response = await Promise.race([fetchPromise, timeoutPromise]);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error?.message || 'Unknown error'}`);
                 }
+                
+                const data = await response.json();
+                if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+                    throw new Error('Invalid response format from API');
+                }
+                
+                let result = data.candidates[0].content.parts[0].text.trim();
+                
+                if (result.includes('\\n')) {
+                    result = result.replace(/\\n/g, '\n');
+                }
+                
+                // Đánh dấu API hiện tại là hoạt động thành công
+                activeApiIndex = apiIndex;
+                apiRetryCount = 0;
+                
+                return result;
+                
+            } catch (error) {
+                // Đánh dấu API hiện tại có vấn đề
+                console.warn(`API ${api.name} thất bại: ${error.message}`);
+                
+                // Thử API tiếp theo nếu có
+                if (apiIndex < API_ENDPOINTS.length - 1) {
+                    const nextApiIndex = apiIndex + 1;
+                    console.log(`Thử API tiếp theo: ${API_ENDPOINTS[nextApiIndex].name}`);
+                    return await callGeminiAPI(prompt, nextApiIndex);
+                } else {
+                    // Đã thử hết tất cả API
+                    throw new Error(`Tất cả API đã thất bại. Lỗi cuối cùng: ${error.message}`);
+                }
+            }
+        }
+
+        async function retryWithDifferentAPI(originalError, prompt) {
+            apiRetryCount++;
+            
+            if (apiRetryCount > MAX_RETRY_COUNT) {
+                throw originalError;
+            }
+            
+            // Chuyển sang API tiếp theo
+            activeApiIndex = (activeApiIndex + 1) % API_ENDPOINTS.length;
+            
+            console.log(`Thử lại với API khác: ${API_ENDPOINTS[activeApiIndex].name}, lần thử: ${apiRetryCount}`);
+            
+            try {
+                return await callGeminiAPI(prompt, activeApiIndex);
+            } catch (error) {
+                // Nếu API mới cũng lỗi, tiếp tục thử API tiếp theo
+                return await retryWithDifferentAPI(error, prompt);
+            }
+        }
+
+        async function fetchGemini(prompt, maxRetries = 3) {
+            try {
+                // Luôn bắt đầu với API ưu tiên cao nhất (index 0)
+                return await callGeminiAPI(prompt, 0);
+            } catch (error) {
+                // Nếu tất cả API đều thất bại, thử lại với retry logic cũ
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        console.log(`Thử lại lần ${attempt}/${maxRetries} với API hiện tại`);
+                        return await callGeminiAPI(prompt, activeApiIndex);
+                    } catch (retryError) {
+                        if (attempt === maxRetries) {
+                            throw new Error(`Failed after ${maxRetries} attempts: ${retryError.message}`);
+                        }
+                        
+                        await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                    }
+                }
+                throw error;
             }
         }
 
@@ -2399,33 +2479,8 @@
             `;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: prompt
-                            }]
-                        }],
-                        generationConfig: {
-                            maxOutputTokens: 8000,
-                            temperature: 0.7,
-                            topP: 0.95,
-                            topK: 40,
-                        }
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error?.message || 'Lỗi từ API');
-                }
-
-                const resultText = data.candidates[0].content.parts[0].text;
+                // Sử dụng hàm callGeminiAPI mới với logic chuyển đổi API
+                const resultText = await callGeminiAPI(prompt);
                 
                 const jsonMatch = resultText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
@@ -2470,6 +2525,35 @@
                     };
                 }
             } catch (error) {
+                // Nếu có lỗi trong quá trình xử lý, thử lại với API khác
+                console.error('Lỗi khi gọi Gemini API:', error);
+                
+                try {
+                    // Thử lại với API khác
+                    const resultText = await retryWithDifferentAPI(error, prompt);
+                    
+                    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        const examData = JSON.parse(jsonMatch[0]);
+                        
+                        if (examData.blocks) {
+                            examData.blocks.forEach(block => {
+                                if (block.content) {
+                                    block.content = processContentForStorage(block.content);
+                                }
+                            });
+                        }
+                        
+                        if (!examData.workInfo && workInfo) {
+                            examData.workInfo = workInfo;
+                        }
+                        
+                        return examData;
+                    }
+                } catch (retryError) {
+                    throw new Error('Lỗi kết nối với Gemini API: ' + retryError.message);
+                }
+                
                 throw new Error('Lỗi kết nối với Gemini API: ' + error.message);
             }
         }
@@ -2525,33 +2609,8 @@
             `;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: fullPrompt
-                            }]
-                        }],
-                        generationConfig: {
-                            maxOutputTokens: 8000,
-                            temperature: 0.7,
-                            topP: 0.95,
-                            topK: 40,
-                        }
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error?.message || 'Lỗi từ API');
-                }
-
-                const resultText = data.candidates[0].content.parts[0].text;
+                // Sử dụng hàm callGeminiAPI mới
+                const resultText = await callGeminiAPI(fullPrompt);
                 
                 const jsonMatch = resultText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
@@ -2570,7 +2629,29 @@
                     throw new Error('Không thể phân tích phản hồi từ AI');
                 }
             } catch (error) {
-                throw new Error('Lỗi kết nối với Gemini API: ' + error.message);
+                // Thử lại với API khác
+                try {
+                    const resultText = await retryWithDifferentAPI(error, fullPrompt);
+                    
+                    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        const examData = JSON.parse(jsonMatch[0]);
+                        
+                        if (examData.blocks) {
+                            examData.blocks.forEach(block => {
+                                if (block.content) {
+                                    block.content = processContentForStorage(block.content);
+                                }
+                            });
+                        }
+                        
+                        return examData;
+                    } else {
+                        throw new Error('Không thể phân tích phản hồi từ AI');
+                    }
+                } catch (retryError) {
+                    throw new Error('Lỗi kết nối với Gemini API: ' + retryError.message);
+                }
             }
         }
 
@@ -2653,7 +2734,8 @@
             try {
                 addProgressItem('Đang tải tác phẩm ngẫu nhiên...');
                 
-                const result = await fetchGemini(prompt);
+                // Sử dụng hàm callGeminiAPI mới
+                const result = await callGeminiAPI(prompt);
                 completeProgressItem(0);
                 
                 const lines = result.split('\n');
@@ -2691,14 +2773,61 @@
                 
                 return workInfo.content;
             } catch (error) {
-                currentRealWorkInfo = {
-                    title: "Chí Phèo",
-                    author: "Nam Cao",
-                    genre: "Truyện ngắn",
-                    content: processContentForStorage("Hắn vừa đi vừa chửi. Bao giờ cũng thế, cứ rượu xong là hắn chửi. Bắt đầu hắn chửi trời. Có hề gì? Trời có của riêng nhà nào? Rồi hắn chửi đời. Thế cũng chẳng sao: đời là tất cả nhưng chẳng là ai...")
-                };
+                // Nếu API thất bại, dùng dữ liệu mẫu
+                console.error('Lỗi khi tải tác phẩm ngẫu nhiên:', error);
                 
-                return currentRealWorkInfo.content;
+                try {
+                    // Thử lại với API khác
+                    const result = await retryWithDifferentAPI(error, prompt);
+                    completeProgressItem(0);
+                    
+                    const lines = result.split('\n');
+                    const workInfo = {
+                        title: '',
+                        author: '',
+                        genre: '',
+                        content: ''
+                    };
+                    
+                    let contentStarted = false;
+                    let contentLines = [];
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('TÁC PHẨM:')) {
+                            workInfo.title = line.replace('TÁC PHẨM:', '').trim();
+                        } else if (line.startsWith('TÁC GIẢ:')) {
+                            workInfo.author = line.replace('TÁC GIẢ:', '').trim();
+                        } else if (line.startsWith('THỂ LOẠI:')) {
+                            workInfo.genre = line.replace('THỂ LOẠI:', '').trim();
+                        } else if (line.trim() === '' && workInfo.title && !contentStarted) {
+                            contentStarted = true;
+                        } else if (contentStarted) {
+                            contentLines.push(line);
+                        }
+                    }
+                    
+                    workInfo.content = processContentForStorage(contentLines.join('\n').trim());
+                    
+                    if (!workInfo.title) workInfo.title = "Tác phẩm văn học";
+                    if (!workInfo.author) workInfo.author = "Tác giả";
+                    if (!workInfo.genre) workInfo.genre = "Văn học";
+                    
+                    currentRealWorkInfo = workInfo;
+                    
+                    return workInfo.content;
+                } catch (retryError) {
+                    // Dùng dữ liệu mẫu nếu tất cả API đều thất bại
+                    errorProgressItem(0);
+                    
+                    currentRealWorkInfo = {
+                        title: "Chí Phèo",
+                        author: "Nam Cao",
+                        genre: "Truyện ngắn",
+                        content: processContentForStorage("Hắn vừa đi vừa chửi. Bao giờ cũng thế, cứ rượu xong là hắn chửi. Bắt đầu hắn chửi trời. Có hề gì? Trời có của riêng nhà nào? Rồi hắn chửi đời. Thế cũng chẳng sao: đời là tất cả nhưng chẳng là ai...")
+                    };
+                    
+                    return currentRealWorkInfo.content;
+                }
             }
         }
 
@@ -2759,6 +2888,8 @@
                     errorMessage += 'Yêu cầu mất quá nhiều thời gian. Vui lòng thử lại.';
                 } else if (error.message.includes('Failed after')) {
                     errorMessage += 'Không thể kết nối đến AI. Vui lòng kiểm tra kết nối internet và thử lại.';
+                } else if (error.message.includes('Tất cả API đã thất bại')) {
+                    errorMessage += 'Tất cả các API đều không hoạt động. Vui lòng thử lại sau.';
                 } else {
                     errorMessage += error.message;
                 }
@@ -2767,11 +2898,13 @@
                     <div class="exam-info" style="background: rgba(239, 68, 68, 0.1); border-color: #ef4444;">
                         <h3 style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Lỗi khi tạo đề thi ngẫu nhiên</h3>
                         <p>${errorMessage}</p>
+                        <p><strong>API đang sử dụng:</strong> ${API_ENDPOINTS[activeApiIndex]?.name || 'Không xác định'}</p>
                         <p><strong>Gợi ý:</strong></p>
                         <ul>
                             <li>Kiểm tra kết nối internet</li>
                             <li>Thử lại với tác giả khác</li>
                             <li>Thử lại sau vài phút</li>
+                            <li>Hệ thống sẽ tự động thử API khác nếu có lỗi</li>
                         </ul>
                     </div>
                 `;
@@ -2837,7 +2970,7 @@
                     addProgressItem('Tạo câu hỏi đề thi');
                     addProgressItem('Hoàn thiện cấu trúc đề');
 
-                    const textTypeResponse = await fetchGemini(
+                    const textTypeResponse = await callGeminiAPI(
                         `Xác định thể loại chính xác của văn bản sau (chỉ trả về 1-3 từ): "${text.substring(0, 800)}"`
                     );
                     completeProgressItem(0);
@@ -2855,7 +2988,7 @@
                         `;
                         
                         try {
-                            const verificationResult = await fetchGemini(verificationPrompt);
+                            const verificationResult = await callGeminiAPI(verificationPrompt);
                             if (verificationResult.includes('CÓ') || verificationResult.includes('có')) {
                                 workInfo = {
                                     title: "Tác phẩm văn học",
@@ -2864,6 +2997,7 @@
                                 };
                             }
                         } catch (e) {
+                            // Bỏ qua lỗi xác minh
                         }
                     }
                     
@@ -2942,6 +3076,8 @@
                     errorMessage += 'Yêu cầu mất quá nhiều thời gian. Vui lòng thử lại.';
                 } else if (error.message.includes('Failed after')) {
                     errorMessage += 'Không thể kết nối đến AI. Vui lòng kiểm tra kết nối internet và thử lại.';
+                } else if (error.message.includes('Tất cả API đã thất bại')) {
+                    errorMessage += 'Tất cả các API đều không hoạt động. Vui lòng thử lại sau.';
                 } else {
                     errorMessage += error.message;
                 }
@@ -2950,11 +3086,14 @@
                     <div class="exam-info" style="background: rgba(239, 68, 68, 0.1); border-color: #ef4444;">
                         <h3 style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Lỗi khi tạo đề thi</h3>
                         <p>${errorMessage}</p>
+                        <p><strong>API đang sử dụng:</strong> ${API_ENDPOINTS[activeApiIndex]?.name || 'Không xác định'}</p>
+                        <p><strong>Số lần thử lại:</strong> ${apiRetryCount}</p>
                         <p><strong>Gợi ý:</strong></p>
                         <ul>
                             <li>Kiểm tra kết nối internet</li>
                             <li>Thử lại với nội dung khác</li>
                             <li>Thử lại sau vài phút</li>
+                            <li>Hệ thống sẽ tự động thử API khác nếu có lỗi</li>
                         </ul>
                     </div>
                 `;
@@ -3163,7 +3302,8 @@
                     status: "active",
                     isRealWork: !!currentRealWorkInfo,
                     workInfo: currentRealWorkInfo || null,
-                    creationMode: currentCreationMode
+                    creationMode: currentCreationMode,
+                    apiUsed: API_ENDPOINTS[activeApiIndex]?.name || 'Unknown'
                 };
                 
                 examDataToSave.blocks.forEach(block => {
@@ -3236,7 +3376,8 @@
                         isRealWork: !!currentRealWorkInfo,
                         workInfo: currentRealWorkInfo,
                         savedAt: new Date().toISOString(),
-                        reason: "Firestore failed, saved locally"
+                        reason: "Firestore failed, saved locally",
+                        apiUsed: API_ENDPOINTS[activeApiIndex]?.name || 'Unknown'
                     };
                     localStorage.setItem('vanw_exams_local', JSON.stringify(localExams));
                     
@@ -3581,7 +3722,8 @@
                 isRealWork: !!currentRealWorkInfo,
                 workInfo: currentRealWorkInfo,
                 createdAt: new Date().toISOString(),
-                totalPoints: currentExamBlocks.reduce((sum, block) => sum + (block.points || 0), 0)
+                totalPoints: currentExamBlocks.reduce((sum, block) => sum + (block.points || 0), 0),
+                apiUsed: API_ENDPOINTS[activeApiIndex]?.name || 'Unknown'
             };
             
             const savedExams = JSON.parse(localStorage.getItem('vanw_exams') || '[]');
@@ -4468,6 +4610,13 @@
             document.getElementById('inputText')?.focus();
             
             renderBlockyBlocks();
+            
+            // Log API status khi khởi động
+            console.log('API Status:');
+            API_ENDPOINTS.forEach((api, index) => {
+                console.log(`${index + 1}. ${api.name}: ${api.active ? 'Active' : 'Inactive'}`);
+            });
+            console.log(`Active API: ${API_ENDPOINTS[activeApiIndex]?.name || 'None'}`);
         });
     </script>
 </body>
