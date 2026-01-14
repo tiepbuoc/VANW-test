@@ -8,9 +8,21 @@ let isStopped = false;
 let isSidebarVisible = false;
 let quickReplyMessageId = null;
 let isFirstMessage = false;
-let apiDefenseSystem = null;
-let currentGenAI = null;
-let currentModel = null;
+
+// ============================
+// KIỂM TRA VÀ KHAI BÁO BIẾN NẾU CHƯA TỒN TẠI
+// ============================
+if (typeof apiDefenseSystem === 'undefined') {
+    var apiDefenseSystem = null;
+}
+
+if (typeof currentGenAI === 'undefined') {
+    var currentGenAI = null;
+}
+
+if (typeof currentModel === 'undefined') {
+    var currentModel = null;
+}
 
 // ============================
 // API PHÒNG THỦ HỆ THỐNG (Tương tự chatbot-l.html)
@@ -442,6 +454,13 @@ function generateSuggestions(messages) {
 async function initializeAPIDefenseForPopup() {
     try {
         console.log("🚀 Khởi tạo hệ thống API Phòng Thủ cho Popup...");
+        
+        // Kiểm tra nếu đã được khởi tạo trước đó
+        if (apiDefenseSystem && apiDefenseSystem.isInitialized) {
+            console.log("✅ Hệ thống API Phòng Thủ đã được khởi tạo trước đó");
+            return true;
+        }
+        
         apiDefenseSystem = new APIDefenseSystem();
         const apiInfo = await apiDefenseSystem.initialize();
         
@@ -1178,6 +1197,5 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(initChatbot, 300);
     }
 });
-
 
 window.initChatbot = initChatbot;
