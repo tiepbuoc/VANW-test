@@ -55,6 +55,11 @@ class APIDefenseSystem {
       console.log("=== BẮT ĐẦU KHỞI TẠO API PHÒNG THỦ ===");
       console.log("Lưu ý: Tất cả API key đều được đảo ngược, hệ thống sẽ tự động đảo lại");
       
+      // Cập nhật loading text nếu có
+      if (window.showLoading && window.updateLoadingText) {
+        window.updateLoadingText("Đang khởi tạo hệ thống API phòng thủ...");
+      }
+      
       // Thêm API chính vào danh sách (đã đảo ngược)
       this.allApis.push({
         reversedKey: this.reversedPrimaryApiKey,
@@ -76,9 +81,15 @@ class APIDefenseSystem {
       });
       
       // Load API dự phòng từ file
+      if (window.updateLoadingText) {
+        window.updateLoadingText("Đang tải API dự phòng từ file...");
+      }
       await this.loadBackupApis();
       
       // Test tất cả API
+      if (window.updateLoadingText) {
+        window.updateLoadingText("Đang kiểm tra kết nối API...");
+      }
       await this.testAllApisSequentially();
       
       // Chọn API hoạt động đầu tiên
@@ -86,9 +97,19 @@ class APIDefenseSystem {
         this.currentApiIndex = 0;
         console.log(`=== ĐÃ CHỌN API HOẠT ĐỘNG: #${this.workingApis[0].index} ===`);
         this.isInitialized = true;
+        
+        if (window.updateLoadingText) {
+          window.updateLoadingText(`Đã tìm thấy ${this.workingApis.length} API hoạt động`);
+        }
+        
         return this.workingApis[0];
       } else {
         console.error("=== KHÔNG CÓ API NÀO HOẠT ĐỘNG! ===");
+        
+        if (window.updateLoadingText) {
+          window.updateLoadingText("Không tìm thấy API nào hoạt động, sử dụng chế độ offline");
+        }
+        
         throw new Error("KHÔNG CÓ API NÀO HOẠT ĐỘNG!");
       }
     })();
@@ -99,6 +120,10 @@ class APIDefenseSystem {
   async loadBackupApis() {
     try {
       console.log("=== ĐANG TẢI API DỰ PHÒNG TỪ FILE ===");
+      
+      if (window.updateLoadingText) {
+        window.updateLoadingText("Đang tìm file API dự phòng...");
+      }
       
       const possiblePaths = [
         'assets/apiphongthu.txt',
@@ -116,6 +141,11 @@ class APIDefenseSystem {
           response = await fetch(path);
           if (response.ok) {
             console.log(`✓ Tìm thấy file tại: ${path}`);
+            
+            if (window.updateLoadingText) {
+              window.updateLoadingText("Đang đọc file API dự phòng...");
+            }
+            
             break;
           }
         } catch (e) {
@@ -126,6 +156,11 @@ class APIDefenseSystem {
       
       if (!response || !response.ok) {
         console.log("Không tìm thấy file apiphongthu.txt, chỉ sử dụng API chính");
+        
+        if (window.updateLoadingText) {
+          window.updateLoadingText("Không tìm thấy file API dự phòng, chỉ sử dụng API chính");
+        }
+        
         return false;
       }
       
@@ -136,6 +171,10 @@ class APIDefenseSystem {
       console.log(`Số dòng trong file: ${lines.length}`);
       
       let index = this.allApis.length;
+      
+      if (window.updateLoadingText) {
+        window.updateLoadingText(`Đang xử lý ${lines.length} API dự phòng...`);
+      }
       
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -183,9 +222,19 @@ class APIDefenseSystem {
       }
       
       console.log(`Đã tải ${this.allApis.length - 2} API dự phòng từ file`);
+      
+      if (window.updateLoadingText) {
+        window.updateLoadingText(`Đã tải ${this.allApis.length} API từ tất cả nguồn`);
+      }
+      
       return true;
     } catch (error) {
       console.error('Lỗi khi tải API dự phòng:', error);
+      
+      if (window.updateLoadingText) {
+        window.updateLoadingText("Lỗi khi tải API dự phòng, tiếp tục với API chính");
+      }
+      
       return false;
     }
   }
@@ -202,6 +251,11 @@ class APIDefenseSystem {
       if (!apiInfo.apiKey.includes("AIza")) {
         console.log(`[API #${apiInfo.index}] ✗ KEY KHÔNG HỢP LỆ (thiếu 'AIza')`);
         return null;
+      }
+      
+      // Cập nhật loading text cho từng API
+      if (window.updateLoadingText) {
+        window.updateLoadingText(`Đang kiểm tra API #${apiInfo.index}...`);
       }
       
       const controller = new AbortController();
@@ -242,12 +296,21 @@ class APIDefenseSystem {
     
     console.log(`\n=== BẮT ĐẦU KIỂM TRA ${this.allApis.length} API ===`);
     
+    if (window.updateLoadingText) {
+      window.updateLoadingText(`Đang kiểm tra ${this.allApis.length} API...`);
+    }
+    
     for (let i = 0; i < this.allApis.length; i++) {
       const apiInfo = this.allApis[i];
       const result = await this.testApiConnection(apiInfo);
       
       if (result) {
         this.workingApis.push(result);
+      }
+      
+      // Cập nhật tiến trình
+      if (window.updateLoadingText) {
+        window.updateLoadingText(`Đã kiểm tra ${i + 1}/${this.allApis.length} API (${this.workingApis.length} hoạt động)`);
       }
       
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -262,6 +325,10 @@ class APIDefenseSystem {
       const status = isWorking ? '✓' : '✗';
       console.log(`[${api.index}] ${status} ${api.isPrimary ? 'PRIMARY' : 'BACKUP'} - ${api.model} (${api.source})`);
     });
+    
+    if (window.updateLoadingText) {
+      window.updateLoadingText(`Hoàn thành: ${this.workingApis.length}/${this.allApis.length} API hoạt động`);
+    }
   }
 
   getCurrentApi() {
@@ -369,7 +436,18 @@ async function fetchGemini(prompt, model = null) {
     // Đảm bảo hệ thống đã được khởi tạo
     if (!apiDefenseSystem.isInitialized) {
       console.log("Đang khởi tạo hệ thống API phòng thủ...");
+      
+      // Hiển thị loading nếu có
+      if (window.showLoading) {
+        window.showLoading("Đang khởi tạo hệ thống API...");
+      }
+      
       await apiDefenseSystem.initialize();
+      
+      // Ẩn loading nếu có
+      if (window.hideLoading) {
+        window.hideLoading();
+      }
     }
     
     // Sử dụng cơ chế phòng thủ
@@ -1831,31 +1909,19 @@ window.fetchGemini = fetchGemini;
 window.callGeminiWithDefense = callGeminiWithDefense;
 window.getApiKeyForGemini = getApiKeyForGemini;
 
+// Thêm hàm updateLoadingText để cập nhật text trong quá trình loading
+window.updateLoadingText = function(text) {
+    const loadingText = document.getElementById('loadingText');
+    if (loadingText) {
+        loadingText.textContent = text;
+    }
+};
+
 // Khởi tạo hệ thống API phòng thủ khi trang tải xong
 document.addEventListener('DOMContentLoaded', function() {
     console.log('VANW Text Analysis Tool đã sẵn sàng!');
     console.log('API Phòng Thủ đang được khởi tạo...');
     
-    // Khởi tạo hệ thống API phòng thủ (chạy ngầm)
-    apiDefenseSystem.initialize().then(apiInfo => {
-        console.log(`=== HỆ THỐNG API PHÒNG THỦ ĐÃ SẴN SÀNG ===`);
-        console.log(`API đang dùng: #${apiInfo.index} (${apiInfo.model})`);
-        console.log(`Tổng API hoạt động: ${apiDefenseSystem.workingApis.length}/${apiDefenseSystem.allApis.length}`);
-        console.log(`Nguồn: ${apiInfo.source}`);
-    }).catch(error => {
-        console.error('Lỗi khởi tạo hệ thống API phòng thủ:', error);
-    });
-    
-    const originalOpenPopup = openPopup;
-    window.openPopup = function(menuId) {
-        originalOpenPopup(menuId);
-        
-        setTimeout(() => {
-            if (menuId === 'mapMenu' && window.initMapPopup) {
-                initMapPopup();
-            } else if (menuId === 'chatbotMenu' && window.initChatbot) {
-                initChatbot();
-            }
-        }, 100);
-    };
+    // Hàm khởi tạo hệ thống API phòng thủ sẽ được gọi từ khampha.html
+    // Không cần gọi initialize() ở đây vì đã được gọi từ loading screen
 });
