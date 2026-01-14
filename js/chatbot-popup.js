@@ -1,5 +1,5 @@
-const REVERSED_API_KEY = "ADHvlJk9rfZ40q7ju_r-yVQl1ZqW4Z-MDySzAI";
-const CHATBOT_API_KEY = REVERSED_API_KEY.split('').reverse().join('');
+const REVERSED_API_KEYc = "ADHvlJk9rfZ40q7ju_r-yVQl1ZqW4Z-MDySzAI";
+const CHATBOT_API_KEY = REVERSED_API_KEYc.split('').reverse().join('');
 
 let chats = [];
 let currentChatId = null;
@@ -18,7 +18,7 @@ let currentModel = null;
 class APIDefenseSystem {
     constructor() {
         // API key CHÍNH bị đảo ngược (giống code 2)
-        this.reversedPrimaryApiKey = REVERSED_API_KEY;
+        this.reversedPrimaryApiKey = REVERSED_API_KEYc;
         this.primaryModel = "gemini-2.5-flash";
         this.allApis = [];
         this.workingApis = [];
@@ -1178,5 +1178,6 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(initChatbot, 300);
     }
 });
+
 
 window.initChatbot = initChatbot;
