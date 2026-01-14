@@ -45,10 +45,11 @@ class APIDefenseSystem {
         this.currentApiIndex = -1;
         this.isInitialized = false;
         this.backupApisLoaded = false;
+        this.currentWorkingApi = null; // API đang hoạt động hiện tại
     }
 
     async initialize() {
-        console.log("=== BẮT ĐẦU KIỂM TRA TẤT CẢ API ===");
+        console.log("=== BẮT ĐẦU KIỂM TRA API TỪNG CÁI MỘT ===");
         console.log("Lưu ý: Tất cả API key đều được đảo ngược, hệ thống sẽ tự động đảo lại");
         
         // Thêm API chính vào danh sách (đã đảo ngược)
@@ -63,15 +64,14 @@ class APIDefenseSystem {
         // Load API dự phòng từ file
         await this.loadBackupApis();
         
-        // Test tất cả API
-        await this.testAllApisSequentially();
+        // Test API tuần tự - dừng khi tìm thấy API hoạt động
+        await this.testApisUntilFirstWorking();
         
-        // Chọn API hoạt động đầu tiên
-        if (this.workingApis.length > 0) {
-            this.currentApiIndex = 0;
-            console.log(`=== ĐÃ CHỌN API HOẠT ĐỘNG: #${this.workingApis[0].index} ===`);
+        if (this.currentWorkingApi) {
+            console.log(`=== ĐÃ TÌM THẤY API HOẠT ĐỘNG: #${this.currentWorkingApi.index} ===`);
+            console.log(`Không cần kiểm tra các API khác nữa.`);
             this.isInitialized = true;
-            return this.workingApis[0];
+            return this.currentWorkingApi;
         } else {
             console.error("=== KHÔNG CÓ API NÀO HOẠT ĐỘNG! ===");
             throw new Error("KHÔNG CÓ API NÀO HOẠT ĐỘNG!");
@@ -242,18 +242,25 @@ class APIDefenseSystem {
         }
     }
 
-    async testAllApisSequentially() {
-        this.workingApis = [];
+    async testApisUntilFirstWorking() {
+        console.log(`\n=== KIỂM TRA TUẦN TỰ ${this.allApis.length} API (DỪNG KHI TÌM THẤY API HOẠT ĐỘNG) ===`);
         
-        console.log(`\n=== BẮT ĐẦU KIỂM TRA ${this.allApis.length} API ===`);
-        
-        // Test tuần tự từng API
+        // Test tuần tự từng API, dừng khi tìm thấy API hoạt động
         for (let i = 0; i < this.allApis.length; i++) {
             const apiInfo = this.allApis[i];
             const result = await this.testApiConnection(apiInfo);
             
             if (result) {
-                this.workingApis.push(result);
+                // Tìm thấy API hoạt động
+                this.currentWorkingApi = result;
+                this.workingApis = [result]; // Chỉ lưu API đang hoạt động
+                this.currentApiIndex = 0;
+                
+                console.log(`\n=== ĐÃ TÌM THẤY API HOẠT ĐỘNG Ở VỊ TRÍ ${i + 1}/${this.allApis.length} ===`);
+                console.log(`API #${apiInfo.index} - ${apiInfo.isPrimary ? 'PRIMARY' : 'BACKUP'} - ${apiInfo.model}`);
+                console.log(`Dừng kiểm tra, không kiểm tra các API khác nữa.`);
+                
+                return; // Dừng kiểm tra
             }
             
             // Delay nhẹ giữa các lần test
@@ -261,133 +268,121 @@ class APIDefenseSystem {
         }
         
         console.log(`\n=== KẾT QUẢ KIỂM TRA ===`);
-        console.log(`✓ API hoạt động: ${this.workingApis.length}/${this.allApis.length}`);
-        
-        if (this.workingApis.length === 0) {
-            console.log("\n⚠️ CẢNH BÁO: Không có API nào hoạt động!");
-        }
-        
-        // Log chi tiết từng API
-        console.log("\n=== CHI TIẾT TỪNG API ===");
-        this.allApis.forEach(api => {
-            const isWorking = this.workingApis.some(w => w.index === api.index);
-            const status = isWorking ? '✓' : '✗';
-            console.log(`[${api.index}] ${status} ${api.isPrimary ? 'PRIMARY' : 'BACKUP'} - ${api.model}`);
-        });
+        console.log(`✗ Không tìm thấy API nào hoạt động sau khi kiểm tra ${this.allApis.length} API`);
     }
 
     getCurrentApi() {
-        if (this.workingApis.length === 0) return null;
-        return this.workingApis[this.currentApiIndex];
+        return this.currentWorkingApi;
     }
 
     async switchToNextApi() {
-        if (this.workingApis.length <= 1) {
-            console.log("Không còn API dự phòng nào!");
+        console.log("=== ĐANG CHUYỂN SANG API TIẾP THEO ===");
+        
+        if (!this.currentWorkingApi) {
+            console.log("Không có API nào đang hoạt động!");
             return false;
         }
         
-        // Tìm API hoạt động tiếp theo
-        const nextIndex = (this.currentApiIndex + 1) % this.workingApis.length;
-        this.currentApiIndex = nextIndex;
+        const currentIndex = this.currentWorkingApi.index;
         
-        console.log(`Đã chuyển sang API #${this.workingApis[nextIndex].index}`);
-        return this.workingApis[nextIndex];
+        // Tìm API tiếp theo trong danh sách tất cả API
+        const nextApiIndex = this.allApis.findIndex(api => api.index > currentIndex);
+        
+        if (nextApiIndex === -1) {
+            console.log("Đã hết API để chuyển sang!");
+            return false;
+        }
+        
+        // Test API tiếp theo
+        const nextApi = this.allApis[nextApiIndex];
+        console.log(`Đang test API tiếp theo: #${nextApi.index}`);
+        
+        const result = await this.testApiConnection(nextApi);
+        
+        if (result) {
+            // Tìm thấy API hoạt động mới
+            this.currentWorkingApi = result;
+            this.workingApis = [result];
+            this.currentApiIndex = 0;
+            
+            console.log(`✓ Đã chuyển sang API #${nextApi.index}`);
+            return result;
+        } else {
+            console.log(`✗ API #${nextApi.index} không hoạt động, tiếp tục tìm API khác...`);
+            
+            // Đệ quy tìm API tiếp theo
+            return await this.switchToNextApi();
+        }
     }
 
-    async tryAllApisForRequest(prompt, maxRetries = 3) {
-        console.log("\n=== THỬ TẤT CẢ API ĐỂ XỬ LÝ YÊU CẦU ===");
-        
-        // Nếu không có API nào hoạt động
-        if (this.workingApis.length === 0) {
-            console.log("Không có API nào hoạt động!");
+    async tryRequestWithCurrentApi(prompt) {
+        if (!this.currentWorkingApi) {
+            console.log("Không có API nào đang hoạt động!");
             throw new Error("KHÔNG CÓ API NÀO HOẠT ĐỘNG!");
         }
         
-        for (let retry = 1; retry <= maxRetries; retry++) {
-            for (let i = 0; i < this.workingApis.length; i++) {
-                const apiIndex = (this.currentApiIndex + i) % this.workingApis.length;
-                const apiInfo = this.workingApis[apiIndex];
-                
-                console.log(`Lần thử ${retry}/${maxRetries}: Thử API #${apiInfo.index}...`);
-                
-                try {
-                    const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => reject(new Error('Yêu cầu quá thời gian')), 90000);
-                    });
-                    
-                    const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: [{ 
-                                parts: [{ text: prompt }] 
-                            }],
-                            generationConfig: {
-                                maxOutputTokens: 8000,
-                                temperature: 0.7,
-                                topP: 0.95,
-                                topK: 40,
-                            }
-                        })
-                    });
-                    
-                    const response = await Promise.race([fetchPromise, timeoutPromise]);
-                    
-                    if (!response.ok) {
-                        throw new Error(`Lỗi HTTP! status: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-                        throw new Error('Định dạng phản hồi từ API không hợp lệ');
-                    }
-                    
-                    const result = data.candidates[0].content.parts[0].text.trim();
-                    
-                    // Cập nhật API hiện tại nếu thành công
-                    this.currentApiIndex = apiIndex;
-                    console.log(`✓ Thành công với API #${apiInfo.index}`);
-                    
-                    return {
-                        success: true,
-                        response: result,
-                        apiInfo: apiInfo
-                    };
-                } catch (error) {
-                    console.log(`✗ API #${apiInfo.index} lỗi: ${error.message}`);
-                    
-                    // Đánh dấu API này không hoạt động
-                    this.workingApis = this.workingApis.filter(api => api.index !== apiInfo.index);
-                    console.log(`Đã loại bỏ API #${apiInfo.index} khỏi danh sách hoạt động`);
-                    
-                    // Nếu hết API, thử lại từ đầu với retry khác
-                    if (this.workingApis.length === 0) {
-                        console.log("Đã hết API, bỏ qua API này và tiếp tục...");
-                        break;
-                    }
-                    
-                    continue;
-                }
-            }
-            
-            // Nếu đã thử hết các API mà vẫn không được
-            if (this.workingApis.length === 0) {
-                console.log("✗ Đã hết tất cả API!");
-                break;
-            }
-            
-            // Chờ một chút trước khi thử lại
-            if (retry < maxRetries) {
-                console.log(`Chờ 2 giây trước khi thử lại...`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-        }
+        const apiInfo = this.currentWorkingApi;
+        console.log(`📤 Đang gửi yêu cầu với API #${apiInfo.index}...`);
         
-        console.log("✗ Tất cả API đều lỗi sau nhiều lần thử!");
-        throw new Error("TẤT CẢ API ĐỀU KHÔNG HOẠT ĐỘNG!");
+        try {
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Yêu cầu quá thời gian')), 90000);
+            });
+            
+            const fetchPromise = fetch(`https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{ 
+                        parts: [{ text: prompt }] 
+                    }],
+                    generationConfig: {
+                        maxOutputTokens: 8000,
+                        temperature: 0.7,
+                        topP: 0.95,
+                        topK: 40,
+                    }
+                })
+            });
+            
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            
+            if (!response.ok) {
+                throw new Error(`Lỗi HTTP! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+                throw new Error('Định dạng phản hồi từ API không hợp lệ');
+            }
+            
+            const result = data.candidates[0].content.parts[0].text.trim();
+            
+            console.log(`✅ Thành công với API #${apiInfo.index}`);
+            console.log(`📝 Độ dài phản hồi: ${result.length} ký tự`);
+            
+            return {
+                success: true,
+                response: result,
+                apiInfo: apiInfo
+            };
+        } catch (error) {
+            console.log(`✗ API #${apiInfo.index} lỗi: ${error.message}`);
+            
+            // API hiện tại bị lỗi, thử chuyển sang API khác
+            console.log("🔄 API hiện tại bị lỗi, đang thử chuyển sang API khác...");
+            
+            const nextApi = await this.switchToNextApi();
+            if (!nextApi) {
+                throw new Error(`TẤT CẢ API ĐỀU KHÔNG HOẠT ĐỘNG! Lỗi cuối: ${error.message}`);
+            }
+            
+            // Sau khi chuyển sang API mới, thử lại yêu cầu
+            console.log(`🔄 Thử lại yêu cầu với API mới #${nextApi.index}...`);
+            return await this.tryRequestWithCurrentApi(prompt);
+        }
     }
 }
 
@@ -401,7 +396,7 @@ async function initializeAPIDefenseSystem() {
         await apiDefenseSystem.initialize();
         
         console.log("✅ Hệ thống API Phòng Thủ đã sẵn sàng!");
-        console.log(`📊 API hoạt động: ${apiDefenseSystem.workingApis.length}/${apiDefenseSystem.allApis.length}`);
+        console.log(`📊 API đang hoạt động: #${apiDefenseSystem.currentWorkingApi?.index || 'Không có'}`);
         
         if (apiDefenseSystem.backupApisLoaded) {
             console.log("✅ Đã tải API dự phòng từ file");
@@ -593,7 +588,7 @@ async function fetchGemini(prompt, maxRetries = 3) {
     
     try {
         console.log(`📤 Đang gửi yêu cầu qua hệ thống API Phòng Thủ...`);
-        const result = await apiDefenseSystem.tryAllApisForRequest(prompt, maxRetries);
+        const result = await apiDefenseSystem.tryRequestWithCurrentApi(prompt);
         
         if (result.success) {
             console.log(`✅ Đã nhận phản hồi từ API #${result.apiInfo.index}`);
@@ -2926,11 +2921,10 @@ function showAPIStatus() {
     console.log(`📈 API hoạt động: ${status.workingApis}/${status.totalApis}`);
     console.log(`💾 Backup loaded: ${status.backupLoaded ? 'Có' : 'Không'}`);
     
-    if (apiDefenseSystem && apiDefenseSystem.workingApis.length > 0) {
-        console.log("\n📋 Danh sách API hoạt động:");
-        apiDefenseSystem.workingApis.forEach(api => {
-            console.log(`  [#${api.index}] ${api.model} ${api.isPrimary ? '(PRIMARY)' : '(BACKUP)'}`);
-        });
+    if (apiDefenseSystem && apiDefenseSystem.currentWorkingApi) {
+        const api = apiDefenseSystem.currentWorkingApi;
+        console.log(`\n📋 API đang hoạt động:`);
+        console.log(`  [#${api.index}] ${api.model} ${api.isPrimary ? '(PRIMARY)' : '(BACKUP)'}`);
     }
 }
 
