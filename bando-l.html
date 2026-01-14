@@ -1,0 +1,2611 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bản đồ Văn học - VANW</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+:root {
+    --bg-color: #f5f5f5;
+    --card-bg: #ffffff;
+    --card-outline: #b0b0b0;
+    --text-primary: #000000;
+    --text-secondary: #666666;
+    --border-color: #c0c0c0;
+    --button-bg: rgba(0, 0, 0, 0.08);
+    --grid-color: #a0a0a0;
+    --gradient: linear-gradient(135deg, #e37c2d, #f5a742, #f8c34d, #fad859);
+    --primary-color: #e37c2d;
+    --accent-color: #fad859;
+    --shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    --scrollbar-track: #f0f0f0;
+    --scrollbar-thumb: #c0c0c0;
+    --scrollbar-thumb-hover: #a0a0a0;
+}
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 4px;
+    border: 1px solid var(--card-outline);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+    border: 1px solid var(--card-outline);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+.map-popup {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+    z-index: 100;
+}
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    z-index: 1001;
+    background-color: var(--primary-color);
+    color: white;
+    width: 30px;
+    height: 50px;
+    border-radius: 0 8px 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+.sidebar-toggle-btn:hover {
+    background-color: var(--accent-color);
+    transform: translateY(-50%) scale(1.1);
+    border-color: var(--accent-color);
+}
+.map-layout {
+    display: flex;
+    height: 100%;
+    position: relative;
+    width: 100%;
+    z-index: 1;
+}
+.map-sidebar {
+    width: 350px;
+    background-color: var(--card-bg);
+    display: flex;
+    flex-direction: column;
+    border-right: 2px solid var(--border-color);
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+.map-sidebar.hidden {
+    transform: translateX(-100%);
+}
+.map-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--card-bg);
+    position: relative;
+    z-index: 1;
+}
+.map-container {
+    flex-grow: 1;
+    height: 100%;
+    background-color: var(--card-bg);
+    margin: 0;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+#map {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    z-index: 1;
+}
+.map-controls-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+.map-fixed-controls {
+    padding: 15px;
+    background-color: var(--card-bg);
+    border-bottom: 2px solid var(--border-color);
+    flex-shrink: 0;
+    overflow: visible;
+    position: relative;
+    z-index: 10000;
+}
+.map-scrollable-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+    min-height: 200px;
+    position: relative;
+    z-index: 1;
+}
+.search-container {
+    margin-bottom: 15px;
+    position: relative;
+    z-index: 10001;
+}
+.search-input {
+    width: 100%;
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 2px solid var(--card-outline);
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(227, 124, 45, 0.2);
+}
+.advanced-search-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 5px;
+}
+.advanced-search-panel {
+    display: none;
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 15px;
+    margin-top: 10px;
+    background-color: rgba(227, 124, 45, 0.1);
+    border-radius: 8px;
+    border: 2px solid var(--primary-color);
+}
+.advanced-search-panel.active {
+    display: block;
+}
+.advanced-search-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 10px;
+}
+.advanced-field {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+.advanced-field label {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.advanced-field select,
+.advanced-field input {
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 2px solid var(--card-outline);
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+.advanced-field select:focus,
+.advanced-field input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(227, 124, 45, 0.2);
+}
+.advanced-search-actions {
+    display: none;
+}
+.toggle-btn {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+    border: 2px solid #aaa;
+}
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    border: 1px solid #ddd;
+}
+.toggle-btn.active .toggle-slider {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+.toggle-btn.active .toggle-slider:before {
+    transform: translateX(26px);
+}
+.slider {
+    width: 100%;
+    margin: 10px 0;
+    -webkit-appearance: none;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--card-outline);
+    outline: none;
+}
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.slider::-webkit-slider-thumb:hover {
+    background: var(--accent-color);
+    transform: scale(1.1);
+}
+.location-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+.location-controls .control-btn {
+    flex: 1;
+    min-width: 120px;
+    margin-bottom: 0;
+}
+.control-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+}
+.control-btn:hover {
+    background-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+.control-btn.secondary {
+    background-color: var(--card-outline);
+    color: var(--text-primary);
+}
+.control-btn.secondary:hover {
+    background-color: var(--border-color);
+}
+.control-btn.active {
+    background-color: #28a745;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
+}
+.control-btn.active:hover {
+    background-color: #218838;
+}
+.connection-mode {
+    display: none;
+    padding: 15px;
+    background-color: rgba(227, 124, 45, 0.1);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border: 2px solid var(--primary-color);
+}
+.selected-author {
+    padding: 10px;
+    background-color: rgba(227, 124, 45, 0.15);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: var(--primary-color);
+    border: 1px solid rgba(227, 124, 45, 0.3);
+}
+.slider-container {
+    margin-top: 15px;
+    padding: 15px;
+    background-color: var(--card-bg);
+    border-radius: 10px;
+    border: 2px solid var(--card-outline);
+}
+.nearby-authors {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 15px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+}
+.nearby-author {
+    padding: 10px 12px;
+    margin: 8px 0;
+    background-color: rgba(227, 124, 45, 0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(227, 124, 45, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.nearby-author:hover {
+    background-color: rgba(227, 124, 45, 0.2);
+    transform: translateX(5px);
+}
+.distance-badge {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.close-nearby {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 18px;
+    padding: 0 5px;
+    transition: color 0.3s ease;
+    position: absolute;
+    right: 15px;
+    top: 15px;
+}
+.close-nearby:hover {
+    color: var(--primary-color);
+}
+.author-info-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background-color: var(--card-bg);
+    min-height: 200px;
+    position: relative;
+    z-index: 1;
+}
+.info-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+.info-label {
+    font-weight: 600;
+    color: var(--primary-color);
+    display: block;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+}
+.info-value {
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+.short-bio {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 12px;
+    background-color: rgba(0, 0, 0, 0.03);
+    border-radius: 6px;
+    margin: 10px 0;
+    line-height: 1.6;
+    font-size: 0.95rem;
+    border: 1px solid var(--card-outline);
+}
+.works-list {
+    padding-left: 20px;
+    margin: 10px 0;
+}
+.works-list li {
+    margin-bottom: 5px;
+    padding: 3px 0;
+    color: var(--text-primary);
+}
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(227, 124, 45, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 10px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.firebase-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+.firebase-loading .loading-spinner {
+    margin-bottom: 15px;
+}
+.map-sidebar::-webkit-scrollbar,
+.map-scrollable-content::-webkit-scrollbar,
+.author-info-content::-webkit-scrollbar,
+.short-bio::-webkit-scrollbar,
+.nearby-authors::-webkit-scrollbar,
+.advanced-search-panel::-webkit-scrollbar {
+    width: 8px;
+}
+.map-sidebar::-webkit-scrollbar-track,
+.map-scrollable-content::-webkit-scrollbar-track,
+.author-info-content::-webkit-scrollbar-track,
+.short-bio::-webkit-scrollbar-track,
+.nearby-authors::-webkit-scrollbar-track,
+.advanced-search-panel::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 4px;
+    border: 1px solid var(--card-outline);
+}
+.map-sidebar::-webkit-scrollbar-thumb,
+.map-scrollable-content::-webkit-scrollbar-thumb,
+.author-info-content::-webkit-scrollbar-thumb,
+.short-bio::-webkit-scrollbar-thumb,
+.nearby-authors::-webkit-scrollbar-thumb,
+.advanced-search-panel::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+    border: 1px solid var(--card-outline);
+}
+.map-sidebar::-webkit-scrollbar-thumb:hover,
+.map-scrollable-content::-webkit-scrollbar-thumb:hover,
+.author-info-content::-webkit-scrollbar-thumb:hover,
+.short-bio::-webkit-scrollbar-thumb:hover,
+.nearby-authors::-webkit-scrollbar-thumb:hover,
+.advanced-search-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+.country-highlight {
+    animation: highlight 2s ease-in-out;
+}
+@keyframes highlight {
+    0% {
+        fill-opacity: 0.2;
+        stroke-width: 2;
+    }
+    50% {
+        fill-opacity: 0.4;
+        stroke-width: 3;
+    }
+    100% {
+        fill-opacity: 0.2;
+        stroke-width: 2;
+    }
+}
+.leaflet-tooltip {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #000;
+    font-weight: bold;
+    text-shadow:
+        -1px -1px 0 white,
+        1px -1px 0 white,
+        -1px 1px 0 white,
+        1px 1px 0 white;
+    padding: 0 !important;
+    font-size: 12px !important;
+    pointer-events: none !important;
+}
+.suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    z-index: 10002;
+    display: none;
+    max-height: 250px;
+    overflow-y: auto;
+    margin-top: 5px;
+}
+.suggestion-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.3s ease;
+}
+.suggestion-item:hover {
+    background-color: rgba(227, 124, 45, 0.1);
+}
+.wiki-search-option {
+    background-color: rgba(227, 124, 45, 0.1);
+    color: var(--primary-color);
+    font-weight: bold;
+    border-top: 2px solid var(--primary-color);
+}
+.century-filter-container {
+    margin-top: 15px;
+    padding: 12px;
+    background-color: rgba(227, 124, 45, 0.08);
+    border-radius: 8px;
+    border: 1px solid rgba(227, 124, 45, 0.2);
+}
+.century-filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.century-filter-title {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 0.95rem;
+}
+.century-value-display {
+    font-weight: bold;
+    color: var(--primary-color);
+    background-color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    border: 1px solid rgba(227, 124, 45, 0.3);
+}
+.simple-slider {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    background: linear-gradient(to right, #e37c2d, #fad859);
+    border-radius: 3px;
+    outline: none;
+    margin: 10px 0;
+}
+.simple-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid var(--primary-color);
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.simple-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+.century-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.century-label {
+    text-align: center;
+    flex: 1;
+}
+.century-label.active {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+.gemini-response {
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+.gemini-response strong {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+.gemini-response em {
+    font-style: italic;
+}
+.gemini-response u {
+    text-decoration: underline;
+}
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+@media (max-width: 768px) {
+    .map-sidebar {
+        width: 85%;
+        max-width: 300px;
+    }
+    .map-container {
+        margin: 0;
+    }
+    .sidebar-toggle-btn {
+        width: 25px;
+        height: 45px;
+        font-size: 0.9rem;
+    }
+    .sidebar-toggle-btn {
+        transition: left 0.3s ease;
+    }
+    .map-sidebar.hidden ~ .sidebar-toggle-btn {
+        left: 0;
+    }
+    .map-sidebar:not(.hidden) ~ .sidebar-toggle-btn {
+        left: 50%;
+        max-left: 300px;
+    }
+    .location-controls {
+        flex-direction: column;
+    }
+    .location-controls .control-btn {
+        min-width: 100%;
+    }
+    .advanced-search-panel {
+        max-height: 400px;
+    }
+    .map-fixed-controls {
+        padding: 10px;
+    }
+    .search-input {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
+    .control-btn {
+        padding: 10px;
+        font-size: 0.8rem;
+    }
+    .info-section {
+        padding: 10px;
+    }
+}
+.map-scrollable-content {
+    max-height: 500px !important;
+    overflow-y: auto !important;
+}
+.map-scrollable-content::-webkit-scrollbar {
+    width: 8px;
+}
+.map-scrollable-content::-webkit-scrollbar-track {
+    background: rgba(227, 124, 45, 0.1);
+    border-radius: 4px;
+}
+.map-scrollable-content::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+.map-scrollable-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+}
+    </style>
+</head>
+<body>
+    <div class="map-popup">
+        <button class="sidebar-toggle-btn" id="mapSidebarToggleBtn">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+        
+        <div class="map-layout">
+            <div class="map-sidebar" id="mapSidebar">
+                <div class="map-sidebar-content">
+                    <div class="map-controls-container">
+                        <div class="map-fixed-controls">
+                            <div class="search-container">
+                                <input type="text" id="mapSearchInput" class="search-input" placeholder="Tìm kiếm nhà văn...">
+                                <button class="advanced-search-btn" id="advancedSearchBtn">
+                                    <i class="fas fa-sliders-h"></i>
+                                </button>
+                                <div class="suggestions" id="mapSuggestions"></div>
+                            </div>
+                            
+                            <div class="advanced-search-panel" id="advancedSearchPanel">
+                                <div class="advanced-search-fields">
+                                    <div class="advanced-field">
+                                        <label for="searchCountry">Quốc gia:</label>
+                                        <select id="searchCountry">
+                                            <option value="">Tất cả quốc gia</option>
+                                            <option value="Vietnam">Việt Nam</option>
+                                            <option value="United States">Mỹ</option>
+                                            <option value="United Kingdom">Anh</option>
+                                            <option value="France">Pháp</option>
+                                            <option value="Germany">Đức</option>
+                                            <option value="Russia">Nga</option>
+                                            <option value="China">Trung Quốc</option>
+                                            <option value="Japan">Nhật Bản</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Bộ lọc thế kỷ đơn giản -->
+                                    <div class="century-filter-container">
+                                        <div class="century-filter-header">
+                                            <div class="century-filter-title">
+                                                <i class="fas fa-filter"></i> Lọc theo thế kỷ
+                                            </div>
+                                            <div class="century-value-display" id="centuryValueDisplay">Tất cả</div>
+                                        </div>
+                                        <input type="range" id="centurySlider" class="simple-slider" min="0" max="5" value="5">
+                                        <div class="century-labels">
+                                            <div class="century-label" id="label-pre17">17-</div>
+                                            <div class="century-label" id="label-17">17</div>
+                                            <div class="century-label" id="label-18">18</div>
+                                            <div class="century-label" id="label-19">19</div>
+                                            <div class="century-label" id="label-20">20</div>
+                                            <div class="century-label" id="label-all">Tất cả</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="advanced-field">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                                            <label style="font-weight: 600; color: var(--primary-color); display: flex; align-items: center; gap: 5px;">
+                                                <i class="fas fa-link"></i> Chế độ tìm liên hệ
+                                            </label>
+                                            <button id="toggleConnectionModeBtn" class="toggle-btn">
+                                                <span class="toggle-slider"></span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="connectionModePanel" class="connection-mode">
+                                        <div class="selected-author" id="author1Selection">
+                                            <i class="fas fa-user" style="color: #28a745;"></i> Tác giả 1: Chưa chọn
+                                        </div>
+                                        <div class="selected-author" id="author2Selection">
+                                            <i class="fas fa-user" style="color: #dc3545;"></i> Tác giả 2: Chưa chọn
+                                        </div>
+                                        <button id="checkConnectionBtn" class="control-btn" disabled>
+                                            <i class="fas fa-search"></i> Kiểm tra liên hệ
+                                        </button>
+                                        <div id="connectionResult" style="display: none; margin-top: 15px; padding: 15px; background-color: rgba(0,0,0,0.05); border-radius: 8px;"></div>
+                                    </div>
+                                    
+                                    <div class="location-controls">
+                                        <button id="refreshDataBtn" class="control-btn secondary">
+                                            <i class="fas fa-sync-alt"></i> Tải lại dữ liệu
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Đã bỏ nút áp dụng và xóa -->
+                            </div>
+                        </div>
+                        
+                        <div class="map-scrollable-content">
+                            <div id="countryInfoContent" class="author-info-content">
+                                <div class="firebase-loading">
+                                    <span class="loading-spinner"></span>
+                                    <p>Đang kết nối với cơ sở dữ liệu văn học...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="map-main">
+                <div class="map-container">
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.geometryutil@1.3.0/leaflet.geometryutil.min.js"></script>
+
+    <script>
+        // ================== CƠ CHẾ API PHÒNG THỦ (THÊM VÀO) ==================
+        class APIDefenseSystem {
+            constructor() {
+                this.reversedPrimaryApiKey = "cbRSGo7aT22YUIRKGY4db94W_uD1rUmkDySazIA";
+                this.primaryModel = "gemini-2.5-flash";
+                this.allApis = [];
+                this.workingApis = [];
+                this.currentApiIndex = -1;
+                this.isInitialized = false;
+            }
+
+            reverseApiKey(reversedKey) {
+                if (!reversedKey || typeof reversedKey !== 'string') {
+                    return reversedKey;
+                }
+                return reversedKey.split('').reverse().join('');
+            }
+
+            async initialize() {
+                console.log("=== BẮT ĐẦU KIỂM TRA TẤT CẢ API (âm thầm) ===");
+                
+                this.allApis.push({
+                    reversedKey: this.reversedPrimaryApiKey,
+                    apiKey: this.reverseApiKey(this.reversedPrimaryApiKey),
+                    model: this.primaryModel,
+                    isPrimary: true,
+                    index: 0
+                });
+                
+                await this.loadBackupApis();
+                await this.testAllApisSequentially();
+                
+                if (this.workingApis.length > 0) {
+                    this.currentApiIndex = 0;
+                    console.log(`=== ĐÃ CHỌN API HOẠT ĐỘNG: #${this.workingApis[0].index} (âm thầm) ===`);
+                    this.isInitialized = true;
+                    return this.workingApis[0];
+                } else {
+                    console.error("=== KHÔNG CÓ API NÀO HOẠT ĐỘNG! (âm thầm) ===");
+                    return null;
+                }
+            }
+
+            async loadBackupApis() {
+                try {
+                    const possiblePaths = [
+                        'assets/apiphongthu.txt',
+                    ];
+                    
+                    let response = null;
+                    
+                    for (const path of possiblePaths) {
+                        try {
+                            response = await fetch(path);
+                            if (response.ok) {
+                                console.log(`✓ Tìm thấy file API dự phòng tại: ${path} (âm thầm)`);
+                                break;
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                    
+                    if (!response || !response.ok) {
+                        console.log("Không tìm thấy file API dự phòng (âm thầm)");
+                        return false;
+                    }
+                    
+                    const text = await response.text();
+                    const lines = text.trim().split('\n').filter(line => line.trim() !== '');
+                    
+                    let index = 1;
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+                        
+                        if (line.includes('AIza') || line.length > 30) {
+                            const reversedKey = line;
+                            const model = (i + 1 < lines.length) ? lines[i + 1].trim() : this.primaryModel;
+                            const normalKey = this.reverseApiKey(reversedKey);
+                            
+                            const isValidKey = normalKey.includes("AIza") || reversedKey.includes("AIza");
+                            
+                            const apiKey = isValidKey ? normalKey : reversedKey;
+                            
+                            this.allApis.push({
+                                reversedKey: reversedKey,
+                                apiKey: apiKey,
+                                model: model,
+                                isPrimary: false,
+                                index: index
+                            });
+                            
+                            console.log(`[API #${index}] Loaded (âm thầm)`);
+                            index++;
+                            i++;
+                        }
+                    }
+                    
+                    if (this.allApis.length <= 1) {
+                        this.addSampleBackupApis();
+                    }
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Lỗi khi tải API dự phòng (âm thầm):', error);
+                    this.addSampleBackupApis();
+                    return false;
+                }
+            }
+
+            addSampleBackupApis() {
+                const sampleApis = [
+                    {
+                        reversedKey: "AIzaSyB... (key mẫu 1)",
+                        apiKey: "AIzaSyB... (key mẫu 1)",
+                        model: "gemini-2.5-flash",
+                        index: this.allApis.length
+                    }
+                ];
+                
+                sampleApis.forEach(api => {
+                    this.allApis.push({
+                        ...api,
+                        isPrimary: false
+                    });
+                });
+            }
+
+            async testApiConnection(apiInfo) {
+                try {
+                    if (!apiInfo.apiKey || apiInfo.apiKey.length < 20) {
+                        return null;
+                    }
+                    
+                    const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`;
+                    
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+                    
+                    const response = await fetch(testUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: "Hello"
+                                }]
+                            }]
+                        }),
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        console.log(`[API #${apiInfo.index}] ✓ HOẠT ĐỘNG (âm thầm)`);
+                        return {
+                            ...apiInfo,
+                            status: 'working'
+                        };
+                    }
+                    return null;
+                } catch (error) {
+                    console.log(`[API #${apiInfo.index}] ✗ LỖI (âm thầm): ${error.message}`);
+                    return null;
+                }
+            }
+
+            async testAllApisSequentially() {
+                this.workingApis = [];
+                
+                for (let i = 0; i < this.allApis.length; i++) {
+                    const apiInfo = this.allApis[i];
+                    const result = await this.testApiConnection(apiInfo);
+                    
+                    if (result) {
+                        this.workingApis.push(result);
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                console.log(`=== KẾT QUẢ KIỂM TRA (âm thầm) ===`);
+                console.log(`✓ API hoạt động: ${this.workingApis.length}/${this.allApis.length} (âm thầm)`);
+            }
+
+            getCurrentApi() {
+                if (this.workingApis.length === 0) return null;
+                return this.workingApis[this.currentApiIndex];
+            }
+
+            async switchToNextApi() {
+                if (this.workingApis.length <= 1) {
+                    return false;
+                }
+                
+                const nextIndex = (this.currentApiIndex + 1) % this.workingApis.length;
+                this.currentApiIndex = nextIndex;
+                
+                console.log(`Đã chuyển sang API #${this.workingApis[nextIndex].index} (âm thầm)`);
+                return this.workingApis[nextIndex];
+            }
+
+            async getApiKeyForGemini() {
+                if (this.workingApis.length === 0) {
+                    console.error("Không có API nào hoạt động (âm thầm)");
+                    return null;
+                }
+                
+                return this.workingApis[this.currentApiIndex].apiKey;
+            }
+
+            async tryAllApisForResponse(prompt) {
+                for (let i = 0; i < this.workingApis.length; i++) {
+                    const apiIndex = (this.currentApiIndex + i) % this.workingApis.length;
+                    const apiInfo = this.workingApis[apiIndex];
+                    
+                    console.log(`Thử API #${apiInfo.index} cho Gemini... (âm thầm)`);
+                    
+                    try {
+                        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`;
+                        
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 15000);
+                        
+                        const response = await fetch(testUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                contents: [{
+                                    parts: [{
+                                        text: prompt
+                                    }]
+                                }]
+                            }),
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.candidates && data.candidates[0].content.parts[0].text) {
+                                this.currentApiIndex = apiIndex;
+                                console.log(`✓ Thành công với API #${apiInfo.index} (âm thầm)`);
+                                
+                                return {
+                                    success: true,
+                                    response: data.candidates[0].content.parts[0].text,
+                                    apiInfo: apiInfo
+                                };
+                            }
+                        }
+                    } catch (error) {
+                        console.log(`✗ API #${apiInfo.index} lỗi: ${error.message} (âm thầm)`);
+                        this.workingApis = this.workingApis.filter(api => api.index !== apiInfo.index);
+                        continue;
+                    }
+                }
+                
+                console.log("✗ Tất cả API đều lỗi! (âm thầm)");
+                return {
+                    success: false,
+                    error: "Tất cả API đều không hoạt động"
+                };
+            }
+        }
+        // ================== END API PHÒNG THỦ ==================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const firebaseConfig = {
+                apiKey: "AIzaSyBHnbro8qUvRyos-BRNdtTRtF0gftKeBEw",
+                authDomain: "bando-239fb.firebaseapp.com",
+                projectId: "bando-239fb",
+                storageBucket: "bando-239fb.firebasestorage.app",
+                messagingSenderId: "969907441998",
+                appId: "1:969907441998:web:79756035e54aaee2260e1f",
+                measurementId: "G-R7KXTV4G4K"
+            };
+
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+
+            let authors = [];
+            let historyData = {};
+            let markers = [];
+            let map = null;
+            let selectedAuthor1 = null;
+            let selectedAuthor2 = null;
+            let isConnectionMode = false;
+            let connectionLine = null;
+            let currentAuthorMarker = null;
+            let countryLayers = {};
+            let selectedCountryLayer = null;
+            let hoangSaLayer = null;
+            let truongSaLayer = null;
+            let hoangSaText = null;
+            let truongSaText = null;
+            let isSidebarVisible = true;
+            let suggestions = null;
+            
+            // Thêm biến cho API Defense
+            let apiDefenseSystem = null;
+            let currentApiKey = null;
+
+            // Khởi tạo API Defense System (âm thầm)
+            async function initializeApiDefense() {
+                console.log("🔧 Đang khởi tạo hệ thống API Phòng Thủ...");
+                apiDefenseSystem = new APIDefenseSystem();
+                const result = await apiDefenseSystem.initialize();
+                
+                if (result) {
+                    currentApiKey = result.apiKey;
+                    console.log(`✅ Hệ thống API Phòng Thủ đã sẵn sàng`);
+                    console.log(`   API đang dùng: #${result.index}`);
+                    console.log(`   API hoạt động: ${apiDefenseSystem.workingApis.length}/${apiDefenseSystem.allApis.length}`);
+                } else {
+                    console.warn("⚠️ Hệ thống API Phòng Thủ: Không có API nào hoạt động");
+                    currentApiKey = null;
+                }
+            }
+
+            // Hàm lấy API key từ hệ thống phòng thủ
+            async function getApiKeyForGemini() {
+                if (!apiDefenseSystem || !apiDefenseSystem.isInitialized) {
+                    await initializeApiDefense();
+                }
+                
+                if (!currentApiKey && apiDefenseSystem) {
+                    const apiKey = await apiDefenseSystem.getApiKeyForGemini();
+                    if (apiKey) {
+                        currentApiKey = apiKey;
+                    }
+                }
+                
+                return currentApiKey;
+            }
+
+            // Hàm gọi Gemini với cơ chế phòng thủ
+            async function callGeminiWithDefense(prompt) {
+                try {
+                    if (!apiDefenseSystem) {
+                        await initializeApiDefense();
+                    }
+                    
+                    if (!apiDefenseSystem || apiDefenseSystem.workingApis.length === 0) {
+                        console.error("Không có API nào hoạt động để gọi Gemini");
+                        return null;
+                    }
+                    
+                    const result = await apiDefenseSystem.tryAllApisForResponse(prompt);
+                    
+                    if (result.success) {
+                        console.log(`✅ Gemini đã trả lời thành công qua API #${result.apiInfo.index}`);
+                        return result.response;
+                    } else {
+                        console.error("❌ Tất cả API đều thất bại khi gọi Gemini");
+                        return null;
+                    }
+                } catch (error) {
+                    console.error("Lỗi khi gọi Gemini với cơ chế phòng thủ:", error);
+                    return null;
+                }
+            }
+
+            const MAP_REVERSED_API_KEY = "cbRSGo7aT22YUIRKGY4db94W_uD1rUmkDySazIA";
+            const MAP_API_KEY = MAP_REVERSED_API_KEY.split('').reverse().join('');
+
+            const countryNameMap = {
+                "Nguyễn Khuyến": "Vietnam",
+                "Việt Nam": "Vietnam",
+                "Anh": "United Kingdom",
+                "Mỹ": "United States",
+                "Hoa Kỳ": "United States",
+                "Pháp": "France",
+                "Đức": "Germany",
+                "Nga": "Russia",
+                "Nhật Bản": "Japan",
+                "Trung Quốc": "China",
+                "Trung Hoa": "China",
+                "Hàn Quốc": "South Korea",
+                "Ấn Độ": "India",
+                "Brazil": "Brazil",
+                "Canada": "Canada",
+                "Ý": "Italy",
+                "Tây Ban Nha": "Spain",
+                "Bồ Đào Nha": "Portugal",
+                "Thụy Điển": "Sweden",
+                "Na Uy": "Norway",
+                "Phần Lan": "Finland",
+                "Đan Mạch": "Denmark",
+                "Hà Lan": "Netherlands",
+                "Bỉ": "Belgium",
+                "Thụy Sĩ": "Switzerland",
+                "Áo": "Austria",
+                "Ba Lan": "Poland",
+                "Hy Lạp": "Greece",
+                "Thổ Nhĩ Kỳ": "Turkey",
+                "Ai Cập": "Egypt",
+                "Nam Phi": "South Africa",
+                "Mexico": "Mexico",
+                "Argentina": "Argentina",
+                "Úc": "Australia",
+                "New Zealand": "New Zealand"
+            };
+
+            function translateCountryName(countryName) {
+                if (countryNameMap[countryName]) {
+                    return countryNameMap[countryName];
+                }
+                
+                const lowerCountryName = countryName.toLowerCase();
+                for (const [viName, enName] of Object.entries(countryNameMap)) {
+                    if (viName.toLowerCase() === lowerCountryName) {
+                        return enName;
+                    }
+                }
+                
+                return countryName;
+            }
+
+            function extractShortBio(text) {
+                const firstParagraph = text.split('\n\n')[0] || text;
+                const words = firstParagraph.split(' ');
+                const shortBio = words.slice(0, 300).join(' ');
+                return words.length > 250 ? shortBio + '...' : shortBio;
+            }
+
+            async function searchAuthorFromWikipedia(authorName) {
+                const countryInfoContent = document.getElementById('countryInfoContent');
+                
+                if (!countryInfoContent) return null;
+                
+                try {
+                    const searchUrl = `https://vi.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(authorName)}&format=json&origin=*`;
+                    const searchResponse = await fetch(searchUrl);
+                    const searchData = await searchResponse.json();
+                    
+                    if (searchData.query.search.length === 0) {
+                        throw new Error('Không tìm thấy thông tin trên Wikipedia');
+                    }
+                    
+                    const pageTitle = searchData.query.search[0].title;
+                    
+                    const contentUrl = `https://vi.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages|info&inprop=url&explaintext=true&exchars=1000&pithumbsize=300&titles=${encodeURIComponent(pageTitle)}&format=json&origin=*`;
+                    const contentResponse = await fetch(contentUrl);
+                    const contentData = await response.json();
+                    
+                    const pageId = Object.keys(contentData.query.pages)[0];
+                    const pageInfo = contentData.query.pages[pageId];
+                    const fullText = pageInfo.extract || '';
+                    
+                    let country = "Vietnam";
+                    const allCountries = [...Object.keys(countryNameMap), ...Object.values(countryNameMap)];
+                    
+                    for (const countryName of allCountries) {
+                        if (fullText.includes(countryName)) {
+                            country = countryName;
+                            break;
+                        }
+                    }
+                    
+                    country = translateCountryName(country);
+                    
+                    let century = 20;
+                    const yearMatch = fullText.match(/(\d{4})/);
+                    if (yearMatch) {
+                        const year = parseInt(yearMatch[1]);
+                        century = Math.ceil(year / 100);
+                    }
+                    
+                    let birthPlace = { lat: 0, lng: 0 };
+                    
+                    if (fullText.includes("vĩ độ") || fullText.includes("kinh độ")) {
+                        const latMatch = fullText.match(/vĩ độ.*?(\d+\.?\d*)/i);
+                        const lngMatch = fullText.match(/kinh độ.*?(\d+\.?\d*)/i);
+                        
+                        if (latMatch && lngMatch) {
+                            birthPlace.lat = parseFloat(latMatch[1]);
+                            birthPlace.lng = parseFloat(lngMatch[1]);
+                        }
+                    }
+                    
+                    if (birthPlace.lat === 0 && birthPlace.lng === 0) {
+                        const defaultCoords = {
+                            "Vietnam": { lat: 16, lng: 106.2 },
+                            "United States": { lat: 37.0902, lng: -95.7129 },
+                            "United Kingdom": { lat: 55.3781, lng: -3.4360 },
+                            "France": { lat: 46.6035, lng: 1.8883 },
+                            "Germany": { lat: 51.1657, lng: 10.4515 },
+                            "Russia": { lat: 61.5240, lng: 105.3188 },
+                            "China": { lat: 35.8617, lng: 104.1954 },
+                            "Japan": { lat: 36.2048, lng: 138.2529 }
+                        };
+                        
+                        birthPlace = defaultCoords[country] || { lat: 0, lng: 0 };
+                    }
+                    
+                    let works = [];
+                    const worksMatch = fullText.match(/tác phẩm nổi tiếng (.+?)(\.|,|;|\n|$)/i);
+                    if (worksMatch) {
+                        works = worksMatch[1].split(',').map(s => s.trim()).filter(s => s);
+                    }
+                    
+                    return {
+                        id: "wiki_" + Date.now(),
+                        name: pageTitle,
+                        bio: extractShortBio(fullText),
+                        works: works,
+                        birthPlace: birthPlace,
+                        country: country,
+                        century: century,
+                        image: pageInfo.thumbnail ? pageInfo.thumbnail.source : null,
+                        connections: [],
+                        source: "wikipedia"
+                    };
+                } catch (error) {
+                    console.error('Lỗi khi tìm kiếm Wikipedia:', error);
+                    return null;
+                }
+            }
+
+            const defaultIcon = L.divIcon({
+                className: 'author-default-marker',
+                html: '<div style="background-color: #e37c2d; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+
+            const highlightIcon = L.divIcon({
+                className: 'author-highlight-marker',
+                html: '<div style="background-color: #fad859; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #fad859;"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            function initLeafletMap() {
+                const mapElement = document.getElementById('map');
+                if (!mapElement) {
+                    return;
+                }
+                
+                map = L.map('map', {
+                    zoomControl: true,
+                    attributionControl: true,
+                    preferCanvas: true
+                }).setView([16, 106.2], 6);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 18,
+                    minZoom: 3
+                }).addTo(map);
+
+                initializeMapWithTerritories();
+                
+                const vietnamBounds = L.latLngBounds(
+                    [8.0, 102.0],
+                    [23.0, 115.0]
+                );
+                map.fitBounds(vietnamBounds);
+            }
+
+            function loadCountryGeoData() {
+                fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Không thể tải dữ liệu địa lý');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        const countriesLayer = L.geoJSON(data, {
+                            style: {
+                                fillColor: 'transparent',
+                                fillOpacity: 0,
+                                color: 'transparent',
+                                weight: 0
+                            },
+                            onEachFeature: (feature, layer) => {
+                                const countryName = feature.properties.name;
+                                countryLayers[countryName] = layer;
+                                
+                                layer.on('click', (e) => {
+                                    highlightCountry(countryName);
+                                    showCountryInfo(countryName);
+                                });
+                                
+                                layer.on('mouseover', function() {
+                                    if (this !== selectedCountryLayer) {
+                                        this.setStyle({
+                                            color: '#e37c2d',
+                                            weight: 2,
+                                            opacity: 0.5,
+                                            fillOpacity: 0.1,
+                                            fillColor: '#e37c2d'
+                                        });
+                                    }
+                                });
+                                
+                                layer.on('mouseout', function() {
+                                    if (this !== selectedCountryLayer) {
+                                        this.setStyle({
+                                            color: 'transparent',
+                                            weight: 0,
+                                            fillOpacity: 0
+                                        });
+                                    }
+                                });
+                            }
+                        }).addTo(map);
+                    })
+                    .catch(error => {
+                        showError('Không thể tải dữ liệu địa lý quốc gia. Vui lòng kiểm tra kết nối internet.');
+                    });
+            }
+
+            function initializeMapWithTerritories() {
+                const hoangSaBounds = L.latLngBounds([[15.5, 111.0], [17.0, 112.5]]);
+                const truongSaBounds = L.latLngBounds([[7.5, 111.0], [9.0, 112.5]]);
+
+                hoangSaLayer = L.rectangle(hoangSaBounds, { 
+                    color: '#aad3df',
+                    fillOpacity: 0.7,
+                    weight: 0,
+                    fillColor: '#aad3df',
+                    interactive: false
+                }).addTo(map);
+
+                truongSaLayer = L.rectangle(truongSaBounds, { 
+                    color: '#aad3df',
+                    fillOpacity: 0.7,
+                    weight: 0,
+                    fillColor: '#aad3df',
+                    interactive: false
+                }).addTo(map);
+
+                hoangSaText = L.tooltip({
+                    permanent: true,
+                    direction: 'center',
+                    className: 'leaflet-tooltip',
+                    opacity: 0.8
+                }).setContent("Quần đảo Hoàng Sa")
+                  .setLatLng([16.25, 111.75]);
+
+                truongSaText = L.tooltip({
+                    permanent: true,
+                    direction: 'center',
+                    className: 'leaflet-tooltip',
+                    opacity: 0.8
+                }).setContent("Quần đảo Trường Sa")
+                  .setLatLng([8.25, 111.75]);
+
+                hoangSaText.addTo(map);
+                truongSaText.addTo(map);
+
+                function adjustTerritoryLayers() {
+                    if (!map) return;
+                    
+                    const zoom = map.getZoom();
+                    
+                    if (zoom < 5) {
+                        hoangSaText.setOpacity(0);
+                        truongSaText.setOpacity(0);
+                        hoangSaLayer.setStyle({ opacity: 0 });
+                        truongSaLayer.setStyle({ opacity: 0 });
+                    } else if (zoom < 7) {
+                        hoangSaText.setOpacity(0.5);
+                        truongSaText.setOpacity(0.5);
+                        hoangSaLayer.setStyle({ opacity: 0.5 });
+                        truongSaLayer.setStyle({ opacity: 0.5 });
+                    } else {
+                        hoangSaText.setOpacity(0.9);
+                        truongSaText.setOpacity(0.9);
+                        hoangSaLayer.setStyle({ opacity: 0.7 });
+                        truongSaLayer.setStyle({ opacity: 0.7 });
+                        
+                        const fontSize = Math.min(14, 10 + zoom * 0.5);
+                        hoangSaText.getElement().style.fontSize = fontSize + 'px';
+                        truongSaText.getElement().style.fontSize = fontSize + 'px';
+                    }
+                }
+
+                adjustTerritoryLayers();
+
+                map.on('zoomend', adjustTerritoryLayers);
+                map.on('moveend', adjustTerritoryLayers);
+            }
+
+            function highlightCountry(countryName) {
+                if (selectedCountryLayer) {
+                    selectedCountryLayer.setStyle({ 
+                        color: 'transparent',
+                        fillOpacity: 0,
+                        weight: 0
+                    });
+                    if (selectedCountryLayer.getElement()) {
+                        selectedCountryLayer.getElement().classList.remove('country-highlight');
+                    }
+                }
+                
+                const countryLayer = countryLayers[countryName];
+                if (countryLayer) {
+                    selectedCountryLayer = countryLayer;
+                    
+                    countryLayer.setStyle({
+                        color: '#e37c2d',
+                        weight: 3,
+                        opacity: 0.8,
+                        fillOpacity: 0.2,
+                        fillColor: '#e37c2d'
+                    });
+                    
+                    if (countryLayer.getElement()) {
+                        countryLayer.getElement().classList.add('country-highlight');
+                    }
+                    
+                    const bounds = countryLayer.getBounds();
+                    map.flyToBounds(bounds, { 
+                        padding: [50, 50],
+                        duration: 1
+                    });
+                }
+            }
+
+            async function showCountryInfo(countryName) {
+                const countryInfoContent = document.getElementById('countryInfoContent');
+                
+                if (!countryInfoContent) {
+                    return;
+                }
+                
+                try {
+                    const countryAuthors = authors.filter(author => 
+                        author.country && author.country.toLowerCase().includes(countryName.toLowerCase())
+                    );
+                    
+                    const historyInfo = historyData[countryName] || 
+                                       historyData[translateToVietnamese(countryName)] || 
+                                       { history: "Chưa có thông tin lịch sử văn học cho quốc gia này." };
+                    
+                    let countryInfoHTML = `
+                        <div class="info-section">
+                            <h3 style="margin: 0 0 15px 0; color: var(--primary-color); display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-flag"></i> ${countryName}
+                            </h3>
+                            
+                            <div class="info-section">
+                                <span class="info-label"><i class="fas fa-book"></i> Lịch sử văn học:</span>
+                                <div class="short-bio">
+                                    <p>${historyInfo.history || historyInfo || "Chưa có thông tin lịch sử văn học."}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="info-section">
+                                <span class="info-label"><i class="fas fa-users"></i> Tác giả nổi bật (${countryAuthors.length}):</span>
+                                <div style="margin-top: 10px;">
+                    `;
+                    
+                    if (countryAuthors.length > 0) {
+                        countryInfoHTML += `
+                            <div style="max-height: 300px; overflow-y: auto;">
+                                ${countryAuthors.slice(0, 10).map(author => `
+                                    <div class="nearby-author" onclick="mapPopupShowAuthorInfo('${author.id}')">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span>${author.name}</span>
+                                            <small style="color: var(--text-secondary);">${author.century ? 'Thế kỷ ' + author.century : ''}</small>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                ${countryAuthors.length > 10 ? 
+                                    `<div style="text-align: center; padding: 10px; color: var(--text-secondary); font-size: 0.9rem;">
+                                        ...và ${countryAuthors.length - 10} tác giả khác
+                                    </div>` : ''}
+                            </div>
+                        `;
+                    } else {
+                        countryInfoHTML += `
+                            <p style="color: var(--text-secondary); text-align: center; padding: 20px;">
+                                Chưa có thông tin tác giả cho quốc gia này.
+                            </p>
+                        `;
+                    }
+                    
+                    countryInfoHTML += `
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    countryInfoContent.innerHTML = countryInfoHTML;
+                    countryInfoContent.scrollTop = 0;
+                    
+                } catch (error) {
+                    countryInfoContent.innerHTML = `
+                        <div class="info-section">
+                            <h3 style="color: #ef4444;">Lỗi</h3>
+                            <p>Không thể tải thông tin quốc gia. Vui lòng thử lại sau.</p>
+                        </div>
+                    `;
+                }
+            }
+
+            function translateToVietnamese(countryName) {
+                const countryMap = {
+                    'Vietnam': 'Việt Nam',
+                    'United States': 'Mỹ',
+                    'United States of America': 'Mỹ',
+                    'United Kingdom': 'Anh',
+                    'France': 'Pháp',
+                    'Germany': 'Đức',
+                    'Russia': 'Nga',
+                    'China': 'Trung Quốc',
+                    'Japan': 'Nhật Bản',
+                    'Korea': 'Hàn Quốc',
+                    'South Korea': 'Hàn Quốc',
+                    'India': 'Ấn Độ',
+                    'Italy': 'Ý',
+                    'Spain': 'Tây Ban Nha',
+                    'Portugal': 'Bồ Đào Nha',
+                    'Netherlands': 'Hà Lan',
+                    'Belgium': 'Bỉ',
+                    'Switzerland': 'Thụy Sĩ',
+                    'Sweden': 'Thụy Điển',
+                    'Norway': 'Na Uy',
+                    'Denmark': 'Đan Mạch',
+                    'Finland': 'Phần Lan',
+                    'Poland': 'Ba Lan',
+                    'Czech Republic': 'Cộng hòa Séc',
+                    'Austria': 'Áo',
+                    'Hungary': 'Hungary',
+                    'Romania': 'Romania',
+                    'Bulgaria': 'Bulgaria',
+                    'Greece': 'Hy Lạp',
+                    'Turkey': 'Thổ Nhĩ Kỳ',
+                    'Egypt': 'Ai Cập',
+                    'South Africa': 'Nam Phi',
+                    'Australia': 'Úc',
+                    'New Zealand': 'New Zealand',
+                    'Canada': 'Canada',
+                    'Mexico': 'Mexico',
+                    'Brazil': 'Brazil',
+                    'Argentina': 'Argentina',
+                    'Chile': 'Chile',
+                    'Peru': 'Peru',
+                    'Colombia': 'Colombia',
+                    'Venezuela': 'Venezuela',
+                    'Thailand': 'Thái Lan',
+                    'Malaysia': 'Malaysia',
+                    'Singapore': 'Singapore',
+                    'Indonesia': 'Indonesia',
+                    'Philippines': 'Philippines',
+                    'Cambodia': 'Campuchia',
+                    'Laos': 'Lào',
+                    'Myanmar': 'Myanmar'
+                };
+                
+                return countryMap[countryName] || countryName;
+            }
+
+            function showError(message) {
+                const countryInfoContent = document.getElementById('countryInfoContent');
+                if (countryInfoContent) {
+                    countryInfoContent.innerHTML = `
+                        <div class="info-section">
+                            <h3 style="color: #ef4444;">Lỗi</h3>
+                            <p>${message}</p>
+                        </div>
+                    `;
+                }
+            }
+
+            async function loadData() {
+                try {
+                    const countryInfoContent = document.getElementById('countryInfoContent');
+                    
+                    const authorsSnapshot = await db.collection('authors').get();
+                    authors = [];
+                    authorsSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data.birthPlace) {
+                            if (typeof data.birthPlace === 'string') {
+                                try {
+                                    data.birthPlace = JSON.parse(data.birthPlace);
+                                } catch (e) {
+                                    data.birthPlace = null;
+                                }
+                            }
+                            else if (data.birthPlace && typeof data.birthPlace === 'object' && 
+                                    (!data.birthPlace.lat || !data.birthPlace.lng)) {
+                                if (data.latitude && data.longitude) {
+                                    data.birthPlace = {
+                                        lat: parseFloat(data.latitude),
+                                        lng: parseFloat(data.longitude)
+                                    };
+                                }
+                            }
+                        }
+                        
+                        authors.push({
+                            id: doc.id,
+                            ...data
+                        });
+                    });
+                    
+                    const historySnapshot = await db.collection('history').get();
+                    historyData = {};
+                    historySnapshot.forEach(doc => {
+                        historyData[doc.id] = doc.data();
+                    });
+                    
+                    if (countryInfoContent) {
+                        countryInfoContent.innerHTML = `
+                            <div class="info-section">
+                                <h3 style="margin: 0 0 15px 0; color: var(--primary-color);">
+                                    <i class="fas fa-globe-asia"></i> Bản đồ Văn học
+                                </h3>
+                                <p style="color: var(--text-secondary);">
+                                    Nhấp vào một quốc gia trên bản đồ để xem thông tin văn học và các tác giả nổi bật.
+                                </p>
+                                <div style="margin-top: 20px; padding: 15px; background-color: rgba(227, 124, 45, 0.1); border-radius: 8px;">
+                                    <p style="margin: 0; color: var(--text-primary);">
+                                        <i class="fas fa-lightbulb"></i> <strong>Mẹo:</strong> Bạn cũng có thể tìm kiếm tác giả bằng ô tìm kiếm phía trên.
+                                    </p>
+                                </div>
+                                <div style="margin-top: 10px; padding: 10px; background-color: rgba(66, 133, 244, 0.1); border-radius: 6px;">
+                                    <p style="margin: 0; color: #4285F4; font-size: 0.9rem;">
+                                        <i class="fas fa-info-circle"></i> Đã tải ${authors.length} tác giả, trong đó ${authors.filter(a => a.birthPlace && a.birthPlace.lat && a.birthPlace.lng).length} tác giả có vị trí trên bản đồ.
+                                    </p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    displayAuthors();
+                    
+                } catch (error) {
+                    showError('Không thể kết nối với cơ sở dữ liệu. Vui lòng kiểm tra kết nối internet.');
+                }
+            }
+
+            function displayAuthors() {
+                markers.forEach(marker => {
+                    if (map && map.hasLayer(marker)) {
+                        map.removeLayer(marker);
+                    }
+                });
+                markers = [];
+                
+                authors.forEach(author => {
+                    if (author.birthPlace && author.birthPlace.lat && author.birthPlace.lng) {
+                        const lat = parseFloat(author.birthPlace.lat);
+                        const lng = parseFloat(author.birthPlace.lng);
+                        
+                        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                            const marker = L.marker([lat, lng], { 
+                                icon: defaultIcon,
+                                title: author.name
+                            }).addTo(map);
+                            
+                            marker.bindPopup(createPopupContent(author));
+                            marker.on('click', (e) => {
+                                if (isConnectionMode) {
+                                    selectAuthorForConnection(author);
+                                } else {
+                                    showAuthorInfo(author);
+                                    highlightMarker(marker);
+                                }
+                            });
+                            markers.push(marker);
+                        }
+                    }
+                });
+            }
+
+            function addAuthorMarker(author) {
+                if (author.birthPlace && author.birthPlace.lat && author.birthPlace.lng) {
+                    const lat = parseFloat(author.birthPlace.lat);
+                    const lng = parseFloat(author.birthPlace.lng);
+                    
+                    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                        const marker = L.marker([lat, lng], { 
+                            icon: defaultIcon,
+                            title: author.name
+                        }).addTo(map);
+                        
+                        marker.bindPopup(createPopupContent(author));
+                        marker.on('click', (e) => {
+                            if (isConnectionMode) {
+                                selectAuthorForConnection(author);
+                            } else {
+                                showAuthorInfo(author);
+                                highlightMarker(marker);
+                            }
+                        });
+                        markers.push(marker);
+                        return marker;
+                    }
+                }
+                return null;
+            }
+
+            function createPopupContent(author) {
+                return `
+                    <div style="padding: 10px; max-width: 250px;">
+                        <h3 style="margin: 0 0 10px 0; color: #e37c2d; font-size: 1.1rem;">${author.name}</h3>
+                        ${author.country ? `<p style="margin: 5px 0;"><strong>Quốc gia:</strong> ${author.country}</p>` : ''}
+                        ${author.century ? `<p style="margin: 5px 0;"><strong>Thế kỷ:</strong> ${author.century}</p>` : ''}
+                        ${author.works && author.works.length > 0 ? 
+                            `<p style="margin: 5px 0;"><strong>Tác phẩm:</strong> ${author.works.slice(0, 2).join(', ')}${author.works.length > 2 ? '...' : ''}</p>` : 
+                            ''}
+                        <button onclick="mapPopupShowAuthorInfo('${author.id}')" 
+                                style="margin-top: 10px; padding: 6px 12px; background-color: #e37c2d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                            Xem chi tiết
+                        </button>
+                    </div>
+                `;
+            }
+
+            function showAuthorInfo(author) {
+                const countryInfoContent = document.getElementById('countryInfoContent');
+                
+                if (!countryInfoContent) {
+                    return;
+                }
+                
+                countryInfoContent.innerHTML = `
+                    <div class="info-section">
+                        <h3 style="margin: 0 0 15px 0; color: var(--primary-color); display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user-circle"></i> ${author.name}
+                        </h3>
+                        
+                        ${author.image ? `
+                            <img src="${author.image}" alt="${author.name}" 
+                                 style="width: 100%; max-height: 500px; object-fit: cover; border-radius: 8px; margin-bottom: 15px;">
+                        ` : ''}
+                        
+                        <div class="short-bio">
+                            <p>${author.bio || 'Chưa có thông tin tiểu sử.'}</p>
+                        </div>
+                        
+                        ${author.works && author.works.length > 0 ? `
+                            <div class="info-section" style="margin-top: 15px;">
+                                <h4 style="margin: 0 0 10px 0; color: var(--primary-color);">
+                                    <i class="fas fa-book"></i> Tác phẩm tiêu biểu
+                                </h4>
+                                <ul class="works-list">
+                                    ${author.works.map(work => `<li>${work}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            ${author.country ? `
+                                <div style="background-color: rgba(227, 124, 45, 0.1); padding: 10px; border-radius: 6px; text-align: center;">
+                                    <div style="font-weight: 600; color: var(--primary-color); font-size: 0.9rem;">Quốc gia</div>
+                                    <div style="font-size: 1.1rem; font-weight: 600;">${author.country}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${author.century ? `
+                                <div style="background-color: rgba(227, 124, 45, 0.1); padding: 10px; border-radius: 6px; text-align: center;">
+                                    <div style="font-weight: 600; color: var(--primary-color); font-size: 0.9rem;">Thế kỷ</div>
+                                    <div style="font-size: 1.1rem; font-weight: 600;">${author.century}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        ${author.birthPlace && author.birthPlace.lat && author.birthPlace.lng ? `
+                            <button onclick="mapPopupShowAuthorInfoAndZoom('${author.id}')"
+                                    style="margin-top: 15px; width: 100%; padding: 10px; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;">
+                                <i class="fas fa-map-marker-alt"></i> Xem trên bản đồ
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                
+                countryInfoContent.scrollTop = 0;
+                
+                if (author.country) {
+                    highlightCountry(author.country);
+                }
+            }
+
+            function zoomToAuthorLocation(lat, lng) {
+                if (map) {
+                    map.flyTo([lat, lng], 10, {
+                        duration: 1,
+                        easeLinearity: 0.25
+                    });
+                }
+            }
+
+            function highlightMarker(marker) {
+                markers.forEach(m => m.setIcon(defaultIcon));
+                marker.setIcon(highlightIcon);
+                currentAuthorMarker = marker;
+                marker.openPopup();
+            }
+
+            function searchAuthors(searchTerm) {
+                const lowerSearchTerm = searchTerm.toLowerCase();
+                const filteredAuthors = authors.filter(author => 
+                    author.name.toLowerCase().includes(lowerSearchTerm)
+                );
+                
+                const countryInfoContent = document.getElementById('countryInfoContent');
+                
+                if (!countryInfoContent) return;
+                
+                if (filteredAuthors.length === 0) {
+                    countryInfoContent.innerHTML = `
+                        <div class="info-section">
+                            <h3 style="color: var(--text-secondary);">Không tìm thấy tác giả</h3>
+                            <p>Không tìm thấy tác giả nào với từ khóa "${searchTerm}"</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                countryInfoContent.innerHTML = `
+                    <div class="info-section">
+                        <h3 style="margin-bottom: 15px; color: var(--primary-color);">
+                            <i class="fas fa-search"></i> Kết quả tìm kiếm: "${searchTerm}"
+                        </h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            ${filteredAuthors.map(author => `
+                                <div class="nearby-author" onclick="mapPopupShowAuthorInfo('${author.id}')">
+                                    ${author.name}
+                                    ${author.country ? `<span style="font-size: 0.8rem; color: var(--text-secondary);">(${author.country})</span>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            function toggleConnectionMode() {
+                const toggleConnectionBtn = document.getElementById('toggleConnectionModeBtn');
+                
+                if (!toggleConnectionBtn) return;
+                
+                isConnectionMode = !isConnectionMode;
+                const connectionModePanel = document.getElementById('connectionModePanel');
+                
+                if (!connectionModePanel) return;
+                
+                if (isConnectionMode) {
+                    toggleConnectionBtn.classList.add('active');
+                    connectionModePanel.style.display = 'block';
+                    resetConnectionSelection();
+                } else {
+                    toggleConnectionBtn.classList.remove('active');
+                    connectionModePanel.style.display = 'none';
+                    resetConnectionSelection();
+                }
+            }
+
+            function selectAuthorForConnection(author) {
+                if (!selectedAuthor1) {
+                    selectedAuthor1 = author;
+                    const author1Element = document.getElementById('author1Selection');
+                    if (author1Element) {
+                        author1Element.innerHTML = 
+                            `<i class="fas fa-user" style="color: #28a745;"></i> Tác giả 1: ${author.name}`;
+                    }
+                    
+                    highlightMarkerForConnection(author, '#28a745');
+                } else if (!selectedAuthor2 && selectedAuthor1.id !== author.id) {
+                    selectedAuthor2 = author;
+                    const author2Element = document.getElementById('author2Selection');
+                    if (author2Element) {
+                        author2Element.innerHTML = 
+                            `<i class="fas fa-user" style="color: #dc3545;"></i> Tác giả 2: ${author.name}`;
+                    }
+                    
+                    const checkBtn = document.getElementById('checkConnectionBtn');
+                    if (checkBtn) {
+                        checkBtn.disabled = false;
+                    }
+                    
+                    highlightMarkerForConnection(author, '#dc3545');
+                    drawConnectionLine(selectedAuthor1, selectedAuthor2);
+                }
+            }
+
+            function highlightMarkerForConnection(author, color) {
+                const marker = markers.find(m => {
+                    const latLng = m.getLatLng();
+                    const authorLat = parseFloat(author.birthPlace.lat);
+                    const authorLng = parseFloat(author.birthPlace.lng);
+                    return latLng.lat === authorLat && latLng.lng === authorLng;
+                });
+                
+                if (marker) {
+                    const icon = L.divIcon({
+                        className: 'author-connection-marker',
+                        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px ${color};"></div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+                    marker.setIcon(icon);
+                }
+            }
+
+            function drawConnectionLine(author1, author2) {
+                if (connectionLine && map.hasLayer(connectionLine)) {
+                    map.removeLayer(connectionLine);
+                }
+                
+                const latLngs = [
+                    [parseFloat(author1.birthPlace.lat), parseFloat(author1.birthPlace.lng)],
+                    [parseFloat(author2.birthPlace.lat), parseFloat(author2.birthPlace.lng)]
+                ];
+                
+                connectionLine = L.polyline(latLngs, {
+                    color: '#e37c2d',
+                    weight: 3,
+                    dashArray: '10, 5',
+                    opacity: 0.7
+                }).addTo(map);
+                
+                const bounds = L.latLngBounds(latLngs);
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+
+            function resetConnectionSelection() {
+                selectedAuthor1 = null;
+                selectedAuthor2 = null;
+                
+                const author1Element = document.getElementById('author1Selection');
+                const author2Element = document.getElementById('author2Selection');
+                const checkBtn = document.getElementById('checkConnectionBtn');
+                const connectionResult = document.getElementById('connectionResult');
+                
+                if (author1Element) {
+                    author1Element.innerHTML = 
+                        '<i class="fas fa-user" style="color: #28a745;"></i> Tác giả 1: Chưa chọn';
+                }
+                
+                if (author2Element) {
+                    author2Element.innerHTML = 
+                        '<i class="fas fa-user" style="color: #dc3545;"></i> Tác giả 2: Chưa chọn';
+                }
+                
+                if (checkBtn) {
+                    checkBtn.disabled = true;
+                }
+                
+                if (connectionResult) {
+                    connectionResult.style.display = 'none';
+                }
+                
+                if (connectionLine && map.hasLayer(connectionLine)) {
+                    map.removeLayer(connectionLine);
+                    connectionLine = null;
+                }
+                
+                markers.forEach(marker => marker.setIcon(defaultIcon));
+            }
+
+            function formatGeminiResponse(text) {
+                let formattedText = text;
+                formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                formattedText = formattedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                formattedText = formattedText.replace(/_{2,3}(.*?)_{2,3}/g, '<u>$1</u>');
+                
+                const words = formattedText.split(' ');
+                if (words.length > 60) {
+                    formattedText = words.slice(0, 60).join(' ') + '...';
+                }
+                
+                return formattedText;
+            }
+
+            async function checkConnection() {
+                if (!selectedAuthor1 || !selectedAuthor2) return;
+                
+                const connectionResult = document.getElementById('connectionResult');
+                if (!connectionResult) return;
+                
+                connectionResult.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <div class="loading-spinner"></div>
+                        <p style="margin-top: 10px; color: var(--text-secondary);">Đang phân tích mối liên hệ...</p>
+                    </div>
+                `;
+                connectionResult.style.display = 'block';
+                
+                try {
+                    const prompt = `Phân tích mối liên hệ giữa hai nhà văn ${selectedAuthor1.name} và ${selectedAuthor2.name}. 
+                    Hãy so sánh về: thời đại sống, phong cách sáng tác, chủ đề chính trong tác phẩm, và ảnh hưởng của họ đến văn học. 
+                    Trả lời bằng tiếng Việt, không quá 60 từ.`;
+                    
+                    // Sử dụng cơ chế API phòng thủ để gọi Gemini
+                    console.log("🔄 Đang sử dụng cơ chế API Phòng Thủ để phân tích liên hệ...");
+                    const connectionText = await callGeminiWithDefense(prompt);
+                    
+                    if (connectionText) {
+                        const formattedText = formatGeminiResponse(connectionText);
+                        
+                        connectionResult.innerHTML = `
+                            <h4 style="margin: 0 0 10px 0; color: var(--primary-color);">
+                                <i class="fas fa-link"></i> Mối liên hệ giữa ${selectedAuthor1.name} và ${selectedAuthor2.name}
+                            </h4>
+                            <div class="gemini-response">
+                                ${formattedText}
+                            </div>
+                        `;
+                    } else {
+                        connectionResult.innerHTML = `
+                            <p style="color: var(--text-secondary); text-align: center;">
+                                Không thể phân tích mối liên hệ do lỗi API. Vui lòng thử lại sau.
+                            </p>
+                        `;
+                    }
+                } catch (error) {
+                    connectionResult.innerHTML = `
+                        <p style="color: #ef4444; text-align: center;">
+                            Đã xảy ra lỗi khi phân tích: ${error.message}
+                        </p>
+                    `;
+                }
+            }
+
+            function updateCenturyFilterUI(selectedValue) {
+                const centuryValueDisplay = document.getElementById('centuryValueDisplay');
+                const labels = ['label-pre17', 'label-17', 'label-18', 'label-19', 'label-20', 'label-all'];
+                
+                labels.forEach(labelId => {
+                    const label = document.getElementById(labelId);
+                    if (label) {
+                        label.classList.remove('active');
+                    }
+                });
+                
+                let displayText = "Tất cả";
+                if (selectedValue === 0) {
+                    displayText = "Trước 17";
+                    document.getElementById('label-pre17')?.classList.add('active');
+                } else if (selectedValue === 1) {
+                    displayText = "Thế kỷ 17";
+                    document.getElementById('label-17')?.classList.add('active');
+                } else if (selectedValue === 2) {
+                    displayText = "Thế kỷ 18";
+                    document.getElementById('label-18')?.classList.add('active');
+                } else if (selectedValue === 3) {
+                    displayText = "Thế kỷ 19";
+                    document.getElementById('label-19')?.classList.add('active');
+                } else if (selectedValue === 4) {
+                    displayText = "Thế kỷ 20";
+                    document.getElementById('label-20')?.classList.add('active');
+                } else if (selectedValue === 5) {
+                    displayText = "Tất cả";
+                    document.getElementById('label-all')?.classList.add('active');
+                }
+                
+                if (centuryValueDisplay) {
+                    centuryValueDisplay.textContent = displayText;
+                }
+                
+                applyCenturyFilter(selectedValue);
+            }
+
+            function applyCenturyFilter(selectedValue) {
+                markers.forEach(marker => {
+                    const author = authors.find(a => {
+                        const latLng = marker.getLatLng();
+                        const authorLat = a.birthPlace ? parseFloat(a.birthPlace.lat) : null;
+                        const authorLng = a.birthPlace ? parseFloat(a.birthPlace.lng) : null;
+                        return authorLat && authorLng && latLng.lat === authorLat && latLng.lng === authorLng;
+                    });
+                    
+                    if (!author) return;
+                    
+                    let showMarker = false;
+                    
+                    if (selectedValue === 5) {
+                        showMarker = true;
+                    } else if (selectedValue === 0) {
+                        showMarker = author.century <= 16;
+                    } else {
+                        const targetCentury = selectedValue + 16;
+                        showMarker = author.century === targetCentury;
+                    }
+                    
+                    if (showMarker) {
+                        if (!map.hasLayer(marker)) {
+                            marker.addTo(map);
+                        }
+                    } else {
+                        if (map.hasLayer(marker)) {
+                            map.removeLayer(marker);
+                        }
+                    }
+                });
+            }
+
+            function applyAdvancedFilter() {
+                const country = document.getElementById('searchCountry').value;
+                
+                const filteredAuthors = authors.filter(author => {
+                    let match = true;
+                    
+                    if (country && author.country !== country) {
+                        match = false;
+                    }
+                    
+                    return match;
+                });
+                
+                const centurySlider = document.getElementById('centurySlider');
+                if (centurySlider) {
+                    const centuryValue = parseInt(centurySlider.value);
+                    applyCenturyFilter(centuryValue);
+                }
+                
+                displaySearchResults(filteredAuthors);
+            }
+
+            function displaySearchResults(filteredAuthors) {
+                const countryInfoContent = document.getElementById('countryInfoContent');
+                
+                if (!countryInfoContent) return;
+                
+                if (filteredAuthors.length === 0) {
+                    countryInfoContent.innerHTML = `
+                        <div class="info-section">
+                            <h3 style="color: var(--text-secondary);">Không tìm thấy tác giả</h3>
+                            <p>Không tìm thấy tác giả nào phù hợp với tiêu chí tìm kiếm.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                countryInfoContent.innerHTML = `
+                    <div class="info-section">
+                        <h3 style="margin-bottom: 15px; color: var(--primary-color);">
+                            <i class="fas fa-search"></i> Kết quả tìm kiếm (${filteredAuthors.length} tác giả)
+                        </h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;">
+                            ${filteredAuthors.map(author => `
+                                <div class="nearby-author" onclick="mapPopupShowAuthorInfo('${author.id}')">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                        <span>${author.name}</span>
+                                        <small style="color: var(--text-secondary);">${author.country} • ${author.century ? 'Thế kỷ ' + author.century : ''}</small>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            function setupMapEventListeners() {
+                const sidebarToggleBtn = document.getElementById('mapSidebarToggleBtn');
+                const mapSidebar = document.getElementById('mapSidebar');
+                
+                if (!sidebarToggleBtn || !mapSidebar) {
+                    return;
+                }
+                
+                isSidebarVisible = true;
+                mapSidebar.classList.remove('hidden');
+                
+                updateToggleButtonPosition();
+
+                sidebarToggleBtn.addEventListener('click', () => {
+                    isSidebarVisible = !isSidebarVisible;
+                    if (isSidebarVisible) {
+                        mapSidebar.classList.remove('hidden');
+                        sidebarToggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                    } else {
+                        mapSidebar.classList.add('hidden');
+                        sidebarToggleBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                    }
+                    updateToggleButtonPosition();
+                });
+
+                function updateToggleButtonPosition() {
+                    const sidebarWidth = window.innerWidth <= 768 ? '300px' : '350px';
+                    if (isSidebarVisible) {
+                        sidebarToggleBtn.style.left = sidebarWidth;
+                    } else {
+                        sidebarToggleBtn.style.left = '0';
+                    }
+                }
+
+                window.addEventListener('resize', updateToggleButtonPosition);
+
+                const searchInput = document.getElementById('mapSearchInput');
+                suggestions = document.getElementById('mapSuggestions');
+                
+                if (searchInput && suggestions) {
+                    searchInput.addEventListener('input', handleSearchInput);
+                    searchInput.addEventListener('focus', handleSearchInput);
+                    
+                    document.addEventListener('click', (e) => {
+                        if (suggestions && !searchInput.contains(e.target) && !suggestions.contains(e.target)) {
+                            suggestions.style.display = 'none';
+                        }
+                    });
+                }
+
+                const advancedSearchBtn = document.getElementById('advancedSearchBtn');
+                const advancedSearchPanel = document.getElementById('advancedSearchPanel');
+                
+                if (advancedSearchBtn && advancedSearchPanel) {
+                    advancedSearchBtn.addEventListener('click', () => {
+                        advancedSearchPanel.classList.toggle('active');
+                        
+                        if (advancedSearchPanel.classList.contains('active')) {
+                            advancedSearchBtn.innerHTML = '<i class="fas fa-times"></i>';
+                        } else {
+                            advancedSearchBtn.innerHTML = '<i class="fas fa-sliders-h"></i>';
+                        }
+                    });
+                }
+
+                const searchCountry = document.getElementById('searchCountry');
+                if (searchCountry) {
+                    searchCountry.addEventListener('change', applyAdvancedFilter);
+                }
+
+                const centurySlider = document.getElementById('centurySlider');
+                if (centurySlider) {
+                    centurySlider.addEventListener('input', (e) => {
+                        const value = parseInt(e.target.value);
+                        updateCenturyFilterUI(value);
+                    });
+                    
+                    updateCenturyFilterUI(parseInt(centurySlider.value));
+                }
+
+                const toggleConnectionBtn = document.getElementById('toggleConnectionModeBtn');
+                const checkConnectionBtn = document.getElementById('checkConnectionBtn');
+                
+                if (toggleConnectionBtn) {
+                    toggleConnectionBtn.addEventListener('click', toggleConnectionMode);
+                }
+                
+                if (checkConnectionBtn) {
+                    checkConnectionBtn.addEventListener('click', checkConnection);
+                }
+
+                const refreshDataBtn = document.getElementById('refreshDataBtn');
+                
+                if (refreshDataBtn) {
+                    refreshDataBtn.addEventListener('click', () => {
+                        loadData();
+                        showNotification('Đang tải lại dữ liệu...', 'info');
+                    });
+                }
+            }
+
+            function showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    background-color: ${type === 'info' ? '#4285F4' : type === 'success' ? '#34A853' : '#EA4335'};
+                    color: white;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 9999;
+                    animation: slideIn 0.3s ease;
+                `;
+                
+                notification.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-${type === 'info' ? 'info-circle' : type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
+                        <span>${message}</span>
+                    </div>
+                `;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }, 3000);
+            }
+
+            function handleSearchInput(e) {
+                const searchTerm = e.target.value.trim();
+                if (!suggestions) return;
+                
+                suggestions.innerHTML = '';
+                
+                if (searchTerm.length < 1) {
+                    suggestions.style.display = 'none';
+                    return;
+                }
+                
+                const lowerSearchTerm = searchTerm.toLowerCase();
+                
+                const filteredAuthors = authors.filter(author => 
+                    author.name.toLowerCase().includes(lowerSearchTerm)
+                );
+                
+                if (filteredAuthors.length > 0) {
+                    filteredAuthors.forEach(author => {
+                        const div = document.createElement('div');
+                        div.className = 'suggestion-item';
+                        div.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background-color: #e37c2d;"></div>
+                                <span>${author.name}</span>
+                                <small style="margin-left: auto; color: var(--text-secondary);">${author.country}</small>
+                            </div>
+                        `;
+                        div.addEventListener('click', () => {
+                            showAuthorInfo(author);
+                            const searchInput = document.getElementById('mapSearchInput');
+                            if (searchInput) searchInput.value = author.name;
+                            suggestions.style.display = 'none';
+                        });
+                        suggestions.appendChild(div);
+                    });
+                }
+                
+                const wikiDiv = document.createElement('div');
+                wikiDiv.className = 'suggestion-item wiki-search-option';
+                wikiDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-external-link-alt"></i>
+                        <span>Tìm kiếm "${searchTerm}" trên Wikipedia</span>
+                    </div>
+                `;
+                wikiDiv.addEventListener('click', async () => {
+                    const searchInput = document.getElementById('mapSearchInput');
+                    if (searchInput) searchInput.value = searchTerm;
+                    suggestions.style.display = 'none';
+                    
+                    const countryInfoContent = document.getElementById('countryInfoContent');
+                    if (countryInfoContent) {
+                        countryInfoContent.innerHTML = `
+                            <div class="firebase-loading">
+                                <span class="loading-spinner"></span>
+                                <p>Đang tìm kiếm thông tin trên Wikipedia...</p>
+                            </div>
+                        `;
+                    }
+                    
+                    const authorInfo = await searchAuthorFromWikipedia(searchTerm);
+                    if (authorInfo) {
+                        const existingAuthorIndex = authors.findIndex(a => a.name === authorInfo.name);
+                        if (existingAuthorIndex === -1) {
+                            authors.push(authorInfo);
+                            
+                            if (authorInfo.birthPlace && authorInfo.birthPlace.lat !== 0 && authorInfo.birthPlace.lng !== 0) {
+                                addAuthorMarker(authorInfo);
+                            }
+                            
+                            showAuthorInfo(authorInfo);
+                            
+                            showNotification(`Đã thêm tác giả "${authorInfo.name}" từ Wikipedia`, 'success');
+                        } else {
+                            showAuthorInfo(authors[existingAuthorIndex]);
+                            showNotification(`Tác giả "${authorInfo.name}" đã có trong cơ sở dữ liệu`, 'info');
+                        }
+                    } else {
+                        showError('Không thể tìm thấy thông tin cho "' + searchTerm + '" trên Wikipedia. Vui lòng thử lại với tên khác hoặc kiểm tra kết nối internet.');
+                    }
+                });
+                suggestions.appendChild(wikiDiv);
+                
+                suggestions.style.display = 'block';
+            }
+
+            window.mapPopupShowAuthorInfo = function(authorId) {
+                const author = authors.find(a => a.id === authorId);
+                if (author) {
+                    showAuthorInfo(author);
+                    
+                    if (author.birthPlace && author.birthPlace.lat && author.birthPlace.lng) {
+                        const lat = parseFloat(author.birthPlace.lat);
+                        const lng = parseFloat(author.birthPlace.lng);
+                        zoomToAuthorLocation(lat, lng);
+                        
+                        const marker = markers.find(m => {
+                            const latLng = m.getLatLng();
+                            return latLng.lat === lat && latLng.lng === lng;
+                        });
+                        
+                        if (marker) {
+                            highlightMarker(marker);
+                        }
+                    }
+                }
+            };
+
+            window.mapPopupShowAuthorInfoAndZoom = function(authorId) {
+                window.mapPopupShowAuthorInfo(authorId);
+            };
+
+            setTimeout(async () => {
+                try {
+                    // Khởi tạo hệ thống API phòng thủ âm thầm
+                    console.log("🚀 Bắt đầu khởi tạo hệ thống Bản đồ Văn học...");
+                    await initializeApiDefense();
+                    
+                    initLeafletMap();
+                    setupMapEventListeners();
+                    loadData();
+                    loadCountryGeoData();
+                    
+                    console.log("✅ Hệ thống Bản đồ Văn học đã sẵn sàng!");
+                } catch (error) {
+                    console.error("❌ Lỗi khởi tạo hệ thống:", error);
+                }
+            }, 200);
+        });
+    </script>
+</body>
+</html>

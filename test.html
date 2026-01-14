@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Phòng Thủ - Gemini AI Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#1e40af',
+                        dark: {
+                            bg: '#0f172a',
+                            text: '#e2e8f0',
+                            sidebar: '#1e293b',
+                            hover: '#334155'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Calibri', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Calibri', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .typing-dots::after {
+            content: '...';
+            animation: typing 1.5s infinite;
+        }
+        
+        @keyframes typing {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+        
+        .user-message {
+            align-self: flex-end;
+            background-color: #3b82f6;
+            border-radius: 1rem;
+            max-width: 80%;
+            margin-left: auto;
+            padding: 0.75rem;
+        }
+        
+        .bot-message {
+            align-self: flex-start;
+            background-color: #1e293b;
+            border-radius: 1rem;
+            max-width: 80%;
+            margin-right: auto;
+            padding: 0.75rem;
+        }
+        
+        .message-content {
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+        }
+        
+        .api-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .status-active {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .status-error {
+            background-color: #ef4444;
+            color: white;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col bg-dark-bg text-dark-text">
+
+    <div id="app" class="flex flex-col h-full overflow-hidden">
+
+        <header class="p-4 border-b border-gray-700 bg-dark-bg">
+            <h1 class="text-xl font-semibold text-center">API Phòng Thủ - Gemini AI Chatbot</h1>
+            <div id="current-api-status" class="api-status status-active mt-2 text-center text-sm">
+                <i class="fas fa-check-circle mr-1"></i> Đang khởi tạo hệ thống...
+            </div>
+        </header>
+
+        <div id="chat-container" class="flex-1 overflow-y-auto hide-scrollbar p-4 bg-gray-900 flex flex-col gap-3">
+            <div id="chat-messages" class="flex flex-col gap-3 mx-auto max-w-3xl w-full">
+                <div class="bot-message max-w-3xl">
+                    <div class="message-content">
+                        <p><strong>🤖 API Phòng Thủ Chatbot</strong></p>
+                        <p>Hệ thống đang khởi tạo và kiểm tra API. Vui lòng đợi...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="typing-indicator" class="hidden max-w-3xl mx-auto p-4">
+            <div class="bot-message">
+                <div class="message-content">
+                    <span class="typing-dots">AI đang suy nghĩ</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-gray-700 bg-dark-bg">
+            <div class="max-w-3xl mx-auto">
+                <form id="chat-form" class="relative">
+                    <textarea 
+                        id="message-input" 
+                        class="w-full p-4 rounded-lg border border-gray-600 bg-dark-hover resize-none focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                        placeholder="Đang khởi tạo API... vui lòng đợi"
+                        rows="2"
+                        disabled
+                    ></textarea>
+                    <button type="submit" class="absolute right-3 bottom-3 bg-primary hover:bg-primary/90 text-white p-2 rounded-lg">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+
+        // Hàm đảo ngược chuỗi để lấy key đúng
+        function reverseApiKey(reversedKey) {
+            if (!reversedKey || typeof reversedKey !== 'string') {
+                console.error("API key không hợp lệ:", reversedKey);
+                return reversedKey;
+            }
+            return reversedKey.split('').reverse().join('');
+        }
+
+        class APIDefenseSystem {
+            constructor() {
+                // API key CHÍNH bị đảo ngược trong code
+                this.reversedPrimaryApiKey = "cbRSGo7aT22YUIRKGY4db94W_uD1rUmkDySazIA";
+                this.primaryModel = "gemini-2.5-flash";
+                this.allApis = [];
+                this.workingApis = [];
+                this.currentApiIndex = -1;
+                this.isInitialized = false;
+            }
+
+            async initialize() {
+                console.log("=== BẮT ĐẦU KIỂM TRA TẤT CẢ API ===");
+                console.log("Lưu ý: Tất cả API key đều được đảo ngược, hệ thống sẽ tự động đảo lại");
+                
+                // Thêm API chính vào danh sách (đã đảo ngược)
+                this.allApis.push({
+                    reversedKey: this.reversedPrimaryApiKey,
+                    apiKey: reverseApiKey(this.reversedPrimaryApiKey), // Đảo ngược để dùng
+                    model: this.primaryModel,
+                    isPrimary: true,
+                    index: 0
+                });
+                
+                // Load API dự phòng từ file (cũng đã đảo ngược)
+                await this.loadBackupApis();
+                
+                // Test tất cả API
+                await this.testAllApisSequentially();
+                
+                // Chọn API hoạt động đầu tiên
+                if (this.workingApis.length > 0) {
+                    this.currentApiIndex = 0;
+                    console.log(`=== ĐÃ CHỌN API HOẠT ĐỘNG: #${this.workingApis[0].index} ===`);
+                    this.isInitialized = true;
+                    return this.workingApis[0];
+                } else {
+                    console.error("=== KHÔNG CÓ API NÀO HOẠT ĐỘNG! ===");
+                    throw new Error("KHÔNG CÓ API NÀO HOẠT ĐỘNG!");
+                }
+            }
+
+            async loadBackupApis() {
+                try {
+                    console.log("=== ĐANG TẢI API DỰ PHÒNG ===");
+                    
+                    // Thử các đường dẫn khác nhau cho file apiphongthu.txt
+                    const possiblePaths = [
+                        'assets/apiphongthu.txt',
+                        './assets/apiphongthu.txt',
+                        '/assets/apiphongthu.txt',
+                        'apiphongthu.txt',
+                        './apiphongthu.txt'
+                    ];
+                    
+                    let response = null;
+                    let usedPath = '';
+                    
+                    // Thử từng đường dẫn
+                    for (const path of possiblePaths) {
+                        try {
+                            console.log(`Thử đường dẫn: ${path}`);
+                            response = await fetch(path);
+                            if (response.ok) {
+                                usedPath = path;
+                                console.log(`✓ Tìm thấy file tại: ${path}`);
+                                break;
+                            }
+                        } catch (e) {
+                            console.log(`✗ Không tìm thấy file tại: ${path}`);
+                            continue;
+                        }
+                    }
+                    
+                    if (!response || !response.ok) {
+                        console.error("Không thể tìm thấy file apiphongthu.txt ở bất kỳ đường dẫn nào");
+                        
+                        // Tạo file mẫu để người dùng biết định dạng
+                        this.createSampleApiFile();
+                        return false;
+                    }
+                    
+                    const text = await response.text();
+                    console.log("Nội dung file (truncated):", text.substring(0, 200) + "...");
+                    
+                    // Xử lý nội dung file
+                    const lines = text.trim().split('\n').filter(line => line.trim() !== '');
+                    
+                    console.log(`Số dòng trong file: ${lines.length}`);
+                    
+                    // Bắt đầu index từ 1 vì 0 là API chính
+                    let index = 1;
+                    
+                    // Xử lý từng cặp key-model
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        
+                        if (!line) continue;
+                        
+                        // Kiểm tra nếu dòng này có vẻ là API key (có thể đảo ngược)
+                        if (line.includes('AIza')) {
+                            // Đây có thể là key đã đảo ngược hoặc chưa
+                            const reversedKey = line;
+                            const model = (i + 1 < lines.length) ? lines[i + 1].trim() : this.primaryModel;
+                            
+                            console.log(`\n[API #${index}]`);
+                            console.log(`Key từ file: ${reversedKey.substring(0, 20)}...`);
+                            
+                            // Thử đảo ngược key để xem có hợp lệ không
+                            const normalKey = reverseApiKey(reversedKey);
+                            console.log(`Key đảo lại: ${normalKey.substring(0, 20)}...`);
+                            
+                            // Kiểm tra nếu key đảo lại có chứa "AIza" (dấu hiệu của key hợp lệ)
+                            const isValidKey = normalKey.includes("AIza");
+                            
+                            const apiKey = isValidKey ? normalKey : reversedKey;
+                            
+                            this.allApis.push({
+                                reversedKey: reversedKey,
+                                apiKey: apiKey,
+                                model: model,
+                                isPrimary: false,
+                                index: index
+                            });
+                            
+                            console.log(`Model: ${model}`);
+                            console.log(`Type: BACKUP`);
+                            console.log(`Key hợp lệ: ${isValidKey ? '✓' : '✗'}`);
+                            
+                            index++;
+                            i++; // Bỏ qua dòng model
+                        } else if (line.toLowerCase().includes('gemini')) {
+                            // Đây có thể là dòng model
+                            // Xử lý ở lần lặp trước
+                            continue;
+                        } else {
+                            // Thử xem có phải là key đảo ngược không
+                            console.log(`\n[API #${index} - Thử xử lý]`);
+                            console.log(`Dòng ${i + 1}: ${line.substring(0, 30)}...`);
+                            
+                            // Đảo ngược và kiểm tra
+                            const normalKey = reverseApiKey(line);
+                            const isValidKey = normalKey.includes("AIza");
+                            
+                            if (isValidKey) {
+                                const model = (i + 1 < lines.length) ? lines[i + 1].trim() : this.primaryModel;
+                                
+                                this.allApis.push({
+                                    reversedKey: line,
+                                    apiKey: normalKey,
+                                    model: model,
+                                    isPrimary: false,
+                                    index: index
+                                });
+                                
+                                console.log(`✓ Phát hiện key đảo ngược`);
+                                console.log(`Model: ${model}`);
+                                index++;
+                                i++;
+                            } else {
+                                console.log(`✗ Không phải key đảo ngược hợp lệ`);
+                            }
+                        }
+                    }
+                    
+                    console.log(`\n=== KẾT QUẢ TẢI API DỰ PHÒNG ===`);
+                    console.log(`Đã tải ${this.allApis.length - 1} API dự phòng từ file`);
+                    console.log(`File path: ${usedPath}`);
+                    
+                    // Nếu không có API dự phòng, thêm một vài API mẫu
+                    if (this.allApis.length <= 1) {
+                        console.log("Không có API dự phòng nào, thêm API mẫu...");
+                        this.addSampleBackupApis();
+                    }
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Lỗi khi tải API dự phòng:', error);
+                    
+                    // Thêm API mẫu nếu có lỗi
+                    this.addSampleBackupApis();
+                    
+                    return false;
+                }
+            }
+
+            createSampleApiFile() {
+                console.log("\n=== TẠO FILE MẪU apiphongthu.txt ===");
+                console.log("Vui lòng tạo file 'apiphongthu.txt' trong thư mục 'assets' với định dạng:");
+                console.log("Mỗi API gồm 2 dòng:");
+                console.log("1. API Key (có thể để đảo ngược hoặc không)");
+                console.log("2. Model name (ví dụ: gemini-2.5-flash)");
+                console.log("\nVí dụ:");
+                console.log("AIzaSyB... (key đảo ngược)");
+                console.log("gemini-2.5-flash");
+                console.log("\nLưu ý: Key đảo ngược sẽ an toàn hơn!");
+            }
+
+            addSampleBackupApis() {
+                console.log("\n=== THÊM API DỰ PHÒNG MẪU ===");
+                
+                // Thêm một vài API mẫu (cần thay thế bằng key thật của bạn)
+                const sampleApis = [
+                    {
+                        reversedKey: "AIzaSyB... (key mẫu 1)",
+                        apiKey: "AIzaSyB... (key mẫu 1)",
+                        model: "gemini-2.5-flash",
+                        index: this.allApis.length
+                    },
+                    {
+                        reversedKey: "AIzaSyC... (key mẫu 2)",
+                        apiKey: "AIzaSyC... (key mẫu 2)",
+                        model: "gemini-2.5-flash",
+                        index: this.allApis.length + 1
+                    }
+                ];
+                
+                sampleApis.forEach(api => {
+                    this.allApis.push({
+                        ...api,
+                        isPrimary: false
+                    });
+                });
+                
+                console.log(`Đã thêm ${sampleApis.length} API mẫu`);
+            }
+
+            async testApiConnection(apiInfo) {
+                try {
+                    console.log(`\n[TEST API #${apiInfo.index}]`);
+                    console.log(`Key đảo ngược (trong file): ${apiInfo.reversedKey.substring(0, 20)}...`);
+                    console.log(`Key đã đảo lại (để dùng): ${apiInfo.apiKey.substring(0, 20)}...`);
+                    console.log(`Model: ${apiInfo.model}`);
+                    console.log(`Type: ${apiInfo.isPrimary ? 'PRIMARY' : 'BACKUP'}`);
+                    
+                    // Kiểm tra xem key có hợp lệ không
+                    if (!apiInfo.apiKey || apiInfo.apiKey.length < 20) {
+                        console.log(`[API #${apiInfo.index}] ✗ KEY KHÔNG HỢP LỆ (quá ngắn)`);
+                        return null;
+                    }
+                    
+                    // Kiểm tra xem key có chứa AIza không
+                    if (!apiInfo.apiKey.includes("AIza")) {
+                        console.log(`[API #${apiInfo.index}] ✗ KEY KHÔNG HỢP LỆ (thiếu 'AIza')`);
+                        return null;
+                    }
+                    
+                    const genAI = new GoogleGenerativeAI(apiInfo.apiKey);
+                    const testModel = genAI.getGenerativeModel({ model: apiInfo.model });
+                    
+                    // Test với câu hỏi đơn giản (timeout 10s)
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+                    
+                    try {
+                        const testResult = await testModel.generateContent("Xin chào");
+                        const response = await testResult.response;
+                        const text = response.text();
+                        
+                        clearTimeout(timeoutId);
+                        
+                        console.log(`[API #${apiInfo.index}] ✓ HOẠT ĐỘNG TỐT`);
+                        console.log(`    Phản hồi: ${text.substring(0, 50)}...`);
+                        
+                        return {
+                            ...apiInfo,
+                            status: 'working',
+                            testResponse: text.substring(0, 100)
+                        };
+                    } catch (timeoutError) {
+                        console.log(`[API #${apiInfo.index}] ✗ TIMEOUT`);
+                        return null;
+                    }
+                } catch (error) {
+                    console.log(`[API #${apiInfo.index}] ✗ LỖI: ${error.message}`);
+                    return null;
+                }
+            }
+
+            async testAllApisSequentially() {
+                this.workingApis = [];
+                
+                console.log(`\n=== BẮT ĐẦU KIỂM TRA ${this.allApis.length} API ===`);
+                
+                // Test tuần tự từng API
+                for (let i = 0; i < this.allApis.length; i++) {
+                    const apiInfo = this.allApis[i];
+                    const result = await this.testApiConnection(apiInfo);
+                    
+                    if (result) {
+                        this.workingApis.push(result);
+                    }
+                    
+                    // Delay nhẹ giữa các lần test
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                
+                console.log(`\n=== KẾT QUẢ KIỂM TRA ===`);
+                console.log(`✓ API hoạt động: ${this.workingApis.length}/${this.allApis.length}`);
+                
+                if (this.workingApis.length === 0) {
+                    console.log("\n⚠️ CẢNH BÁO: Không có API nào hoạt động!");
+                    console.log("Vui lòng kiểm tra:");
+                    console.log("1. File apiphongthu.txt có tồn tại không?");
+                    console.log("2. API key có hợp lệ không?");
+                    console.log("3. Bạn có kết nối internet không?");
+                }
+                
+                // Log chi tiết từng API
+                console.log("\n=== CHI TIẾT TỪNG API ===");
+                this.allApis.forEach(api => {
+                    const isWorking = this.workingApis.some(w => w.index === api.index);
+                    const status = isWorking ? '✓' : '✗';
+                    console.log(`[${api.index}] ${status} ${api.isPrimary ? 'PRIMARY' : 'BACKUP'}`);
+                    console.log(`     Key: ${api.reversedKey.substring(0, 25)}...`);
+                    console.log(`     Model: ${api.model}`);
+                });
+            }
+
+            getCurrentApi() {
+                if (this.workingApis.length === 0) return null;
+                return this.workingApis[this.currentApiIndex];
+            }
+
+            async switchToNextApi() {
+                if (this.workingApis.length <= 1) {
+                    console.log("Không còn API dự phòng nào!");
+                    return false;
+                }
+                
+                // Tìm API hoạt động tiếp theo
+                const nextIndex = (this.currentApiIndex + 1) % this.workingApis.length;
+                this.currentApiIndex = nextIndex;
+                
+                console.log(`Đã chuyển sang API #${this.workingApis[nextIndex].index}`);
+                return this.workingApis[nextIndex];
+            }
+
+            async tryAllApisForResponse(userMessage, conversationHistory) {
+                console.log("\n=== THỬ TẤT CẢ API ĐỂ TRẢ LỜI ===");
+                
+                // Nếu không có API nào hoạt động
+                if (this.workingApis.length === 0) {
+                    console.log("Không có API nào hoạt động!");
+                    return {
+                        success: false,
+                        error: "Không có API nào hoạt động"
+                    };
+                }
+                
+                for (let i = 0; i < this.workingApis.length; i++) {
+                    const apiIndex = (this.currentApiIndex + i) % this.workingApis.length;
+                    const apiInfo = this.workingApis[apiIndex];
+                    
+                    console.log(`Thử API #${apiInfo.index}...`);
+                    
+                    try {
+                        const genAI = new GoogleGenerativeAI(apiInfo.apiKey);
+                        const model = genAI.getGenerativeModel({ model: apiInfo.model });
+                        
+                        const chatSession = model.startChat({
+                            history: conversationHistory,
+                            generationConfig: {
+                                maxOutputTokens: 2000,
+                                temperature: 0.9,
+                                topP: 0.1,
+                                topK: 16,
+                            }
+                        });
+
+                        const result = await chatSession.sendMessage(userMessage);
+                        const response = await result.response;
+                        const botReply = response.text();
+                        
+                        // Cập nhật API hiện tại nếu thành công
+                        this.currentApiIndex = apiIndex;
+                        console.log(`✓ Thành công với API #${apiInfo.index}`);
+                        
+                        return {
+                            success: true,
+                            response: botReply,
+                            apiInfo: apiInfo
+                        };
+                    } catch (error) {
+                        console.log(`✗ API #${apiInfo.index} lỗi: ${error.message}`);
+                        
+                        // Đánh dấu API này không hoạt động
+                        this.workingApis = this.workingApis.filter(api => api.index !== apiInfo.index);
+                        console.log(`Đã loại bỏ API #${apiInfo.index} khỏi danh sách hoạt động`);
+                        
+                        continue;
+                    }
+                }
+                
+                console.log("✗ Tất cả API đều lỗi!");
+                return {
+                    success: false,
+                    error: "Tất cả API đều không hoạt động"
+                };
+            }
+        }
+
+        class SimpleGeminiChatbot {
+            constructor() {
+                this.apiDefense = new APIDefenseSystem();
+                this.conversationHistory = [];
+                this.isSending = false;
+                this.typingInterval = null;
+                this.genAI = null;
+                this.model = null;
+                this.currentApiInfo = null;
+            }
+
+            async initialize() {
+                console.log("=== KHỞI TẠO CHATBOT API PHÒNG THỦ ===");
+                
+                // Hiển thị thông báo đang khởi tạo
+                this.addMessageToUI("assistant", 
+                    "**🔧 Đang khởi tạo hệ thống API Phòng Thủ...**\n\n" +
+                    "1. Đang tải API key chính...\n" +
+                    "2. Đang tải API dự phòng...\n" +
+                    "3. Đang kiểm tra kết nối...\n\n" +
+                    "Vui lòng đợi trong giây lát..."
+                );
+                
+                try {
+                    const apiInfo = await this.apiDefense.initialize();
+                    this.currentApiInfo = apiInfo;
+                    this.genAI = new GoogleGenerativeAI(apiInfo.apiKey);
+                    this.model = this.genAI.getGenerativeModel({ model: apiInfo.model });
+                    
+                    console.log(`=== CHATBOT ĐÃ SẴN SÀNG ===`);
+                    console.log(`Đang dùng API: #${apiInfo.index}`);
+                    console.log(`Model: ${apiInfo.model}`);
+                    console.log(`Tổng API hoạt động: ${this.apiDefense.workingApis.length}/${this.apiDefense.allApis.length}`);
+                    
+                    // Hiển thị thông báo thành công
+                    const chatMessages = document.getElementById('chat-messages');
+                    if (chatMessages) {
+                        chatMessages.innerHTML = '';
+                        this.addMessageToUI("assistant", 
+                            `✅ **Hệ thống API Phòng Thủ đã sẵn sàng!**\n\n` +
+                            `• **API đang dùng:** #${apiInfo.index}\n` +
+                            `• **Model:** ${apiInfo.model}\n` +
+                            `• **API hoạt động:** ${this.apiDefense.workingApis.length}/${this.apiDefense.allApis.length}\n\n` +
+                            `Hệ thống tự động chuyển API nếu có lỗi. Bạn có thể bắt đầu chat ngay!`
+                        );
+                        
+                        // Hiển thị cảnh báo nếu chỉ có 1 API
+                        if (this.apiDefense.workingApis.length <= 1) {
+                            this.addMessageToUI("assistant",
+                                `⚠️ **CẢNH BÁO:** Chỉ có 1 API hoạt động!\n` +
+                                `Vui lòng thêm nhiều API dự phòng vào file **apiphongthu.txt** để đảm bảo hệ thống ổn định.`
+                            );
+                        }
+                    }
+                    
+                    // Cập nhật trạng thái và bật input
+                    this.updateStatus();
+                    this.enableInput();
+                    
+                } catch (error) {
+                    console.error("Lỗi khởi tạo:", error);
+                    
+                    const chatMessages = document.getElementById('chat-messages');
+                    if (chatMessages) {
+                        chatMessages.innerHTML = '';
+                        this.addMessageToUI("assistant", 
+                            `❌ **LỖI KHỞI TẠO HỆ THỐNG**\n\n` +
+                            `Không thể kết nối với bất kỳ API nào.\n\n` +
+                            `**Khắc phục:**\n` +
+                            `1. Tạo file **apiphongthu.txt** trong thư mục **assets**\n` +
+                            `2. Thêm API key dự phòng (mỗi API gồm 2 dòng: key và model)\n` +
+                            `3. Refresh trang để thử lại\n\n` +
+                            `Ví dụ nội dung file:\n` +
+                            `\`\`\`\n` +
+                            `AIzaSyB...your_api_key_here\n` +
+                            `gemini-2.5-flash\n` +
+                            `\`\`\``
+                        );
+                    }
+                    
+                    this.updateStatus(false);
+                }
+            }
+
+            updateStatus(success = true) {
+                const statusElement = document.getElementById('current-api-status');
+                if (statusElement) {
+                    if (success && this.currentApiInfo) {
+                        statusElement.className = 'api-status status-active';
+                        statusElement.innerHTML = `<i class="fas fa-check-circle mr-1"></i> API #${this.currentApiInfo.index} (${this.apiDefense.workingApis.length}/${this.apiDefense.allApis.length} hoạt động)`;
+                    } else {
+                        statusElement.className = 'api-status status-error';
+                        statusElement.innerHTML = `<i class="fas fa-exclamation-circle mr-1"></i> Không có API hoạt động`;
+                    }
+                }
+            }
+
+            enableInput() {
+                const messageInput = document.getElementById('message-input');
+                if (messageInput) {
+                    messageInput.disabled = false;
+                    messageInput.placeholder = "Nhập câu hỏi của bạn... (Enter để gửi, Shift+Enter để xuống dòng)";
+                    messageInput.focus();
+                }
+            }
+
+            setupUI() {
+                this.chatContainer = document.getElementById('chat-container');
+                this.chatMessages = document.getElementById('chat-messages');
+                this.chatForm = document.getElementById('chat-form');
+                this.messageInput = document.getElementById('message-input');
+                this.typingIndicator = document.getElementById('typing-indicator');
+
+                this.setupEventListeners();
+                this.setupTextareaAutoResize();
+            }
+
+            setupEventListeners() {
+                this.chatForm.addEventListener('submit', (e) => this.handleSubmit(e));
+                
+                this.messageInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (this.messageInput.value.trim() !== '') {
+                            this.chatForm.dispatchEvent(new Event('submit'));
+                        }
+                    }
+                });
+            }
+
+            setupTextareaAutoResize() {
+                this.messageInput.addEventListener('input', () => {
+                    this.messageInput.style.height = 'auto';
+                    const newHeight = Math.min(this.messageInput.scrollHeight, 150);
+                    this.messageInput.style.height = `${newHeight}px`;
+                });
+            }
+
+            async handleSubmit(e) {
+                e.preventDefault();
+                const userMessage = this.messageInput.value.trim();
+                if (!userMessage || this.isSending) return;
+
+                this.isSending = true;
+                this.addMessageToUI("user", userMessage);
+                
+                this.messageInput.value = "";
+                this.messageInput.style.height = 'auto';
+                
+                this.typingIndicator.classList.remove("hidden");
+
+                try {
+                    // Thử tất cả API để trả lời
+                    const result = await this.apiDefense.tryAllApisForResponse(
+                        userMessage, 
+                        this.conversationHistory.map(msg => ({
+                            role: msg.role === "user" ? "user" : "model",
+                            parts: [{ text: msg.content }]
+                        }))
+                    );
+
+                    if (result.success) {
+                        // Cập nhật API hiện tại
+                        this.currentApiInfo = result.apiInfo;
+                        this.genAI = new GoogleGenerativeAI(result.apiInfo.apiKey);
+                        this.model = this.genAI.getGenerativeModel({ model: result.apiInfo.model });
+                        
+                        // Hiển thị câu trả lời với hiệu ứng gõ chữ
+                        this.displayTypingMessage(result.response);
+                        
+                        // Lưu vào lịch sử hội thoại
+                        this.conversationHistory.push({ 
+                            role: "user", 
+                            content: userMessage,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        this.conversationHistory.push({ 
+                            role: "assistant", 
+                            content: result.response,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        // Cập nhật trạng thái
+                        this.updateStatus();
+                        
+                        console.log(`Đã trả lời thành công với API #${result.apiInfo.index}`);
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    console.error("Lỗi khi gửi tin nhắn:", error);
+                    this.addMessageToUI("assistant", 
+                        `❌ **Đã hết API dự phòng**\n\n` +
+                        `Tất cả API đều bị lỗi:\n` +
+                        `${error.message}\n\n` +
+                        `**Vui lòng:**\n` +
+                        `1. Refresh trang để thử lại\n` +
+                        `2. Kiểm tra file apiphongthu.txt\n` +
+                        `3. Thêm API key mới`
+                    );
+                    this.updateStatus(false);
+                } finally {
+                    this.isSending = false;
+                    this.typingIndicator.classList.add("hidden");
+                    this.scrollToBottom();
+                }
+            }
+
+            displayTypingMessage(content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'bot-message';
+                messageDiv.innerHTML = '<div class="message-content"></div>';
+                this.chatMessages.appendChild(messageDiv);
+                this.scrollToBottom();
+
+                let i = 0;
+                const speed = 10;
+                const contentDiv = messageDiv.querySelector('.message-content');
+
+                if (this.typingInterval) clearInterval(this.typingInterval);
+                
+                this.typingInterval = setInterval(() => {
+                    if (i < content.length) {
+                        contentDiv.innerHTML = this.formatMessage(content.substring(0, i + 1));
+                        i++;
+                        this.scrollToBottom();
+                    } else {
+                        clearInterval(this.typingInterval);
+                        this.typingInterval = null;
+                    }
+                }, speed);
+            }
+
+            addMessageToUI(role, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = role === 'user' ? 'user-message' : 'bot-message';
+                
+                const formattedContent = this.formatMessage(content);
+                messageDiv.innerHTML = `<div class="message-content">${formattedContent}</div>`;
+                
+                this.chatMessages.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+
+            formatMessage(content) {
+                if (!content) return '';
+
+                let formatted = content
+                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                    .replace(/`([^`]+)`/g, '<code class="bg-gray-800 px-1 py-0.5 rounded">$1</code>');
+
+                // Xử lý code block
+                formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-800 p-3 rounded-lg overflow-x-auto"><code>$1</code></pre>');
+
+                formatted = formatted.split('\n\n').map(paragraph => {
+                    return `<p>${paragraph}</p>`;
+                }).join('');
+
+                formatted = formatted.replace(/\n(?![<])/g, '<br>');
+
+                return formatted;
+            }
+
+            scrollToBottom() {
+                setTimeout(() => {
+                    this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+                }, 100);
+            }
+        }
+
+        // Khởi tạo chatbot
+        document.addEventListener('DOMContentLoaded', async () => {
+            const chatbot = new SimpleGeminiChatbot();
+            window.chatbot = chatbot;
+            
+            // Setup UI trước
+            chatbot.setupUI();
+            
+            // Khởi tạo hệ thống
+            chatbot.initialize().then(() => {
+                console.log("Chatbot đã sẵn sàng!");
+            }).catch(error => {
+                console.error("Lỗi khởi tạo chatbot:", error);
+            });
+        });
+    </script>
+</body>
+</html>

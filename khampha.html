@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khám phá văn học - VANW</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/chatbot-popup.css">
+    <link rel="stylesheet" href="css/map-popup.css">
+    <style>
+        .leaflet-tooltip {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #000;
+            font-weight: bold;
+            text-shadow: 
+                -1px -1px 0 white, 
+                1px -1px 0 white, 
+                -1px 1px 0 white, 
+                1px 1px 0 white;
+            padding: 0 !important;
+        }
+        
+        .user-location-marker {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .self-check-notice {
+            background: linear-gradient(135deg, #ff8c00, #ffa500);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
+            animation: pulse-notice 2s infinite;
+            border: 2px solid #ff8c00;
+        }
+        
+        .self-check-notice i {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .self-check-notice span {
+            flex-grow: 1;
+            font-weight: 600;
+        }
+        
+        .self-check-notice .dots {
+            display: inline-block;
+            width: 60px;
+            text-align: left;
+        }
+        
+        .self-check-notice .dots span {
+            animation: dot-flashing 1.4s infinite linear;
+            animation-delay: 0s;
+            font-size: 1.5rem;
+        }
+        
+        .self-check-notice .dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .self-check-notice .dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes pulse-notice {
+            0% { box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3); }
+            50% { box-shadow: 0 4px 20px rgba(255, 140, 0, 0.5); }
+            100% { box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3); }
+        }
+        
+        @keyframes dot-flashing {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+        
+        .analysis-card.self-check-active {
+            border: 3px solid #ff8c00 !important;
+            box-shadow: 0 0 20px rgba(255, 140, 0, 0.2) !important;
+            animation: border-glow 2s infinite;
+        }
+        
+        @keyframes border-glow {
+            0% { border-color: #ff8c00; box-shadow: 0 0 20px rgba(255, 140, 0, 0.2); }
+            50% { border-color: #ffa500; box-shadow: 0 0 25px rgba(255, 165, 0, 0.3); }
+            100% { border-color: #ff8c00; box-shadow: 0 0 20px rgba(255, 140, 0, 0.2); }
+        }
+        
+        .cached-tag {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+            vertical-align: middle;
+            animation: fadeIn 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <button class="nav-btn" id="mapMenu" aria-label="Bản đồ văn học">
+            <i class="fas fa-map-marked-alt"></i>
+            <span class="nav-tooltip">Bản đồ</span>
+        </button>
+        
+        <button class="nav-btn" id="chatbotMenu" aria-label="Chatbot AI">
+            <i class="fas fa-robot"></i>
+            <span class="nav-tooltip">Chatbot AI</span>
+        </button>
+    </div>
+    
+    <div class="app-container">
+        
+        <main>
+            <section class="analysis-tool">
+                <div class="analysis-card" id="mainAnalysisCard">
+                    <h2 class="logo-title">
+                        <img src="assets/htext3.png" alt="KHÁM PHÁ VĂN HỌC" class="title-logo" style="max-width: 100%; height: auto;">
+                    </h2>
+                    
+                    <div class="self-check-notice" id="selfCheckNotice" style="display: none;">
+                        <i class="fas fa-bolt"></i>
+                        <span>Phản hồi nhanh - Đang thực hiện tự kiểm chứng</span>
+                        <div class="dots">
+                            <span>.</span><span>.</span><span>.</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-area">
+                        <textarea id="inputText" placeholder="Nhập nội dung văn bản cần phân tích..."></textarea>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button id="analyzeBtn" class="analyze-btn">
+                            <i class="fas fa-search mr-2"></i> Bắt đầu phân tích
+                        </button>
+                        <button id="settingsBtn" class="settings-btn">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="settings-panel" id="settingsPanel">
+                        <div class="options-grid">
+                            <div class="option-card">
+                                <h3>Phân tích máy</h3>
+                                <p>Tự động phân tích bằng thuật toán hoặc sử dụng AI cho tất cả các phần</p>
+                                <div class="toggle-container">
+                                    <span class="toggle-label">Sử dụng AI toàn phần</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="aiFullToggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="option-card">
+                                <h3>Chế độ phân tích</h3>
+                                <p>Chọn mức độ chi tiết và tốc độ phân tích</p>
+                                <div class="select-container">
+                                    <label for="analysisMode">Chế độ:</label>
+                                    <select id="analysisMode">
+                                        <option value="flash-lite">Phân tích nhanh (Gemini Flash Lite)</option>
+                                        <option value="flash" selected>Phân tích trung bình (Gemini Flash)</option>
+                                        <option value="pro">Phân tích kỹ càng (Gemini Pro)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="option-card">
+                                <h3>Tùy chọn bổ sung</h3>
+                                <p>Các tùy chọn nâng cao cho phân tích chi tiết</p>
+                                <div class="toggle-container">
+                                    <span class="toggle-label">Phân tích ngữ âm</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="phoneticToggle" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="toggle-container">
+                                    <span class="toggle-label">So sánh với tác phẩm khác</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="comparisonToggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-container" id="progressContainer" style="display: none;">
+                        <div class="progress-header">
+                            <div class="progress-title">Tiến trình phân tích</div>
+                            <div class="progress-status" id="progressStatus">Đang xử lý...</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-items" id="progressItems">
+                        </div>
+                    </div>
+                    
+                    <div class="result-area" id="result"></div>
+                </div>
+            </section>
+        </main>
+        
+        <footer class="app-footer">
+            <p>Được tạo bởi <a href="https://www.facebook.com/hoangminhtuan.hmtuan" target="_blank">Hoàng Minh Tuấn</a> và <a href="https://www.facebook.com/chuong.truong.130409" target="_blank">Trương Viết Duy Chương</a></p>
+        </footer>
+    </div>
+    
+    <div class="sidebar-popup" id="sidebarPopup">
+        <div class="popup-header">
+            <div class="popup-title" id="popupTitle">Tiêu đề</div>
+            <button class="close-popup" id="closePopup">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="popup-content" id="popupContent">
+        </div>
+    </div>
+    
+    <svg class="sr-only" style="overflow: visible !important;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <filter id="blur" width="500%" height="500%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="28" />
+        </filter>
+    </svg>
+    
+    <a aria-label="Website Icon" class="web-icon" href="index.html" rel="noreferrer noopener">
+        <img src="assets/logo.png" alt="Website Icon" />
+    </a>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.geometryutil@1.3.0/leaflet.geometryutil.min.js"></script>
+
+    <script src="js/script.js"></script>
+    <script src="js/chatbot-popup.js"></script>
+    <script src="js/map-popup.js"></script>
+</body>
+</html>
+
