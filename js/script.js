@@ -18,7 +18,7 @@ try {
 }
 
 // ============================
-// CƠ CHẾ API PHÒNG THỦ (ÂM THẦM)
+// CƠ CHẾ API PHÒNG THỦ DUY NHẤT
 // ============================
 
 class APIDefenseSystem {
@@ -31,6 +31,10 @@ class APIDefenseSystem {
     this.currentApiIndex = -1;
     this.isInitialized = false;
     this.initializationPromise = null;
+    
+    // Cấu hình cho các module khác
+    this.mapReversedApiKey = "cbRSGo7aT22YUIRKGY4db94W_uD1rUmkDySazIA";
+    this.mapPrimaryModel = "gemini-2.5-flash";
   }
 
   // Hàm đảo ngược chuỗi để lấy key đúng
@@ -57,7 +61,18 @@ class APIDefenseSystem {
         apiKey: this.reverseApiKey(this.reversedPrimaryApiKey),
         model: this.primaryModel,
         isPrimary: true,
-        index: 0
+        index: 0,
+        source: "primary"
+      });
+      
+      // Thêm API cho bản đồ
+      this.allApis.push({
+        reversedKey: this.mapReversedApiKey,
+        apiKey: this.reverseApiKey(this.mapReversedApiKey),
+        model: this.mapPrimaryModel,
+        isPrimary: false,
+        index: 1,
+        source: "map"
       });
       
       // Load API dự phòng từ file
@@ -120,7 +135,7 @@ class APIDefenseSystem {
       const lines = text.trim().split('\n').filter(line => line.trim() !== '');
       console.log(`Số dòng trong file: ${lines.length}`);
       
-      let index = 1;
+      let index = this.allApis.length;
       
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -139,7 +154,8 @@ class APIDefenseSystem {
             apiKey: apiKey,
             model: model,
             isPrimary: false,
-            index: index
+            index: index,
+            source: "backup-file"
           });
           
           console.log(`[API #${index}] Đã thêm API dự phòng`);
@@ -155,7 +171,8 @@ class APIDefenseSystem {
               apiKey: normalKey,
               model: model,
               isPrimary: false,
-              index: index
+              index: index,
+              source: "backup-file"
             });
             
             console.log(`[API #${index}] Phát hiện key đảo ngược`);
@@ -165,7 +182,7 @@ class APIDefenseSystem {
         }
       }
       
-      console.log(`Đã tải ${this.allApis.length - 1} API dự phòng từ file`);
+      console.log(`Đã tải ${this.allApis.length - 2} API dự phòng từ file`);
       return true;
     } catch (error) {
       console.error('Lỗi khi tải API dự phòng:', error);
@@ -187,6 +204,9 @@ class APIDefenseSystem {
         return null;
       }
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`,
         {
@@ -194,9 +214,12 @@ class APIDefenseSystem {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: "Test" }] }]
-          })
+          }),
+          signal: controller.signal
         }
       );
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         console.log(`[API #${apiInfo.index}] ✓ HOẠT ĐỘNG TỐT`);
@@ -237,7 +260,7 @@ class APIDefenseSystem {
     this.allApis.forEach(api => {
       const isWorking = this.workingApis.some(w => w.index === api.index);
       const status = isWorking ? '✓' : '✗';
-      console.log(`[${api.index}] ${status} ${api.isPrimary ? 'PRIMARY' : 'BACKUP'} - ${api.model}`);
+      console.log(`[${api.index}] ${status} ${api.isPrimary ? 'PRIMARY' : 'BACKUP'} - ${api.model} (${api.source})`);
     });
   }
 
@@ -259,7 +282,16 @@ class APIDefenseSystem {
     return this.workingApis[nextIndex];
   }
 
-  async tryAllApisForResponse(prompt) {
+  async getApiKeyForGemini() {
+    if (this.workingApis.length === 0) {
+      console.error("Không có API nào hoạt động");
+      return null;
+    }
+    
+    return this.workingApis[this.currentApiIndex].apiKey;
+  }
+
+  async tryAllApisForResponse(prompt, modelOverride = null) {
     console.log("\n=== THỬ TẤT CẢ API ĐỂ TRẢ LỜI ===");
     
     if (this.workingApis.length === 0) {
@@ -277,16 +309,23 @@ class APIDefenseSystem {
       console.log(`Thử API #${apiInfo.index}...`);
       
       try {
+        const modelToUse = modelOverride || apiInfo.model;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiInfo.apiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }]
-            })
+            }),
+            signal: controller.signal
           }
         );
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -321,11 +360,11 @@ class APIDefenseSystem {
   }
 }
 
-// Khởi tạo hệ thống API phòng thủ
+// Khởi tạo hệ thống API phòng thủ DUY NHẤT
 const apiDefenseSystem = new APIDefenseSystem();
 
 // Hàm fetchGemini mới với cơ chế phòng thủ
-async function fetchGemini(prompt, model) {
+async function fetchGemini(prompt, model = null) {
   try {
     // Đảm bảo hệ thống đã được khởi tạo
     if (!apiDefenseSystem.isInitialized) {
@@ -334,7 +373,7 @@ async function fetchGemini(prompt, model) {
     }
     
     // Sử dụng cơ chế phòng thủ
-    const result = await apiDefenseSystem.tryAllApisForResponse(prompt);
+    const result = await apiDefenseSystem.tryAllApisForResponse(prompt, model);
     
     if (result.success) {
       // Cập nhật model từ API đang dùng
@@ -355,6 +394,20 @@ async function fetchGemini(prompt, model) {
     console.error('Lỗi khi gọi API Gemini với cơ chế phòng thủ:', error);
     throw error;
   }
+}
+
+// Hàm helper cho chatbot
+async function callGeminiWithDefense(prompt) {
+  return await fetchGemini(prompt);
+}
+
+// Hàm helper cho map popup
+async function getApiKeyForGemini() {
+  if (!apiDefenseSystem.isInitialized) {
+    await apiDefenseSystem.initialize();
+  }
+  
+  return await apiDefenseSystem.getApiKeyForGemini();
 }
 
 // ============================
@@ -689,10 +742,10 @@ function xacDinhNhanVatTruTinh(baiTho) {
     let tuTrongBaiTho = baiTho.split(/\s+/);
     
     if (tuTrongBaiTho.includes("tôi") || tuTrongBaiTho.includes("Tôi")) {
-        return "Nhân vật trữ tình là: Tôi";
+        return "Nhân vật trữ tình là : Tôi";
     }
     if (tuTrongBaiTho.includes("cha")) {
-        return "Nhân vật trữ tình là: Cha";
+        return "Nhân vật trữ tình là : Cha";
     }
     
     let tuDauCau = baiTho.split('\n').map(cau => cau.trim().split(/\s+/)[0]);
@@ -715,22 +768,22 @@ function xacDinhNhanVatTruTinh(baiTho) {
         }
     }
     
-    return "Nhân vật trữ tình là: " + nhanVatTruTinh;
+    return "Nhân vật trữ tình là : " + nhanVatTruTinh;
 }
 
 function removeVietnameseAccents(str) {
     const accentMap = {
         'á': 'a', 'à': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a',
-        'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a',
-        'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a',
+        'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ẫ': 'a', 'ậ': 'a',
+        'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ẵ': 'a', 'ặ': 'a',
         'é': 'e', 'è': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e',
-        'ê': 'e', 'ế': 'e', 'ề': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
+        'ê': 'e', 'ề': 'e', 'ế': 'e', 'ễ': 'e', 'ệ': 'e',
         'í': 'i', 'ì': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
         'ó': 'o', 'ò': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o',
-        'ô': 'o', 'ố': 'o', 'ồ': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o',
-        'ơ': 'o', 'ớ': 'o', 'ờ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
+        'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ỗ': 'o', 'ộ': 'o',
+        'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ỡ': 'o', 'ợ': 'o',
         'ú': 'u', 'ù': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u',
-        'ư': 'u', 'ứ': 'u', 'ừ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
+        'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ữ': 'u', 'ự': 'u',
         'ý': 'y', 'ỳ': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
     };
     return str.split('').map(c => accentMap[c] || c).join('');
@@ -869,9 +922,9 @@ function analyzeRhymeAndTone(poem) {
     lines.forEach((line, index) => {
         let words = line.trim().split(/\s+/);
         let lineResult = words.map(word => {
-            let mainVowels = word.split('').filter(char => 'áàảãạắằẳẵặấầẩẫậéèẻẽẹểễếệứửữựíìỉĩịóòỏõọốồổỗộớờởợỡúùủũụýỳỷỹỵ'.includes(char));
+            let mainVowels = word.split('').filter(char => 'áàảãạâầấẫậăằắẵặéèẻẽẹêềếễệíìỉĩịóòỏõọôồốỗộơờớỡợúùủũụưừứữựýỳỷỹỵ'.includes(char));
            
-            let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+            let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữựýỷỹỵ'.includes(vowel)) ? "T" : "B";
             if (tone === "B") bangCount++;
             if (tone === "T") tracCount++;
             return tone;
@@ -894,18 +947,18 @@ function analyzeRhymeAndTone(poem) {
             if (ratio >= 1.5) {
                 toneAnalysisHtml = `<p class="text-gray-600 font-bold mt-2">Bài thơ có âm điệu nhẹ nhàng, du dương.</p>`;
             } else {
-                toneAnalysisHtml = `<p class="text-gray-600 font-bold mt-2">Bài thơ có âm điệu hài hòa, trầm bỗng.</p>`;
+                toneAnalysisHtml = `<p class="text-gray-600 font-bold mt-2">Bài thơ có âm điệu hài hòa, trầm bổng.</p>`;
             }
         } else {
             let ratio = tracCount / bangCount;
             if (ratio >= 1.5) {
                 toneAnalysisHtml = `<p class="text-gray-600 font-bold mt-2">Bài thơ có âm điệu mạnh mẽ, hùng hồn.</p>`;
             } else {
-                toneAnalysisHtml = `<p class="text-gray-600 font-bold mt-2">Bài thơ có âm điệu hài hòa, trầm bỗng.</p>`;
+                toneAnalysisHtml = `<p class="text-gray-600 font-bold mt-2">Bài thơ có âm điệu hài hòa, trầm bổng.</p>`;
             }
         }
     } else {
-        toneAnalysisHtml = `<p class="text-gray-600 font-bold mt-2">Bài thơ có âm điệu hài hòa, trầm bỗng.</p>`;
+        toneAnalysisHtml = `<p class="text-gray-600 font-bold mt-2">Bài thơ có âm điệu hài hòa, trầm bổng.</p>`;
     }
     toneResultHtml += toneAnalysisHtml;
     toneResultHtml += '</div>';
@@ -963,10 +1016,10 @@ function checkDuongLuat(lines) {
    
                 let word = words[pos];
                 let mainVowels = word.split('').filter(char =>
-                    'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(char)
+                    'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(char)
                 );
    
-                let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+                let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(vowel)) ? "T" : "B";
                 return tone === ruleBy[index][i];
             });
             
@@ -975,10 +1028,10 @@ function checkDuongLuat(lines) {
    
                 let word = words[pos];
                 let mainVowels = word.split('').filter(char =>
-                    'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(char)
+                    'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(char)
                 );
    
-                let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+                let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(vowel)) ? "T" : "B";
                 return tone === ruleTrac[index][i];
             });
    
@@ -1019,10 +1072,10 @@ function checkDuongLuat(lines) {
    
                 let word = words[pos];
                 let mainVowels = word.split('').filter(char =>
-                    'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(char)
+                    'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(char)
                 );
    
-                let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+                let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(vowel)) ? "T" : "B";
                 return tone === ruleBy[index][i];
             });
             
@@ -1031,10 +1084,10 @@ function checkDuongLuat(lines) {
    
                 let word = words[pos];
                 let mainVowels = word.split('').filter(char =>
-                    'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(char)
+                    'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(char)
                 );
    
-                let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+                let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(vowel)) ? "T" : "B";
                 return tone === ruleTrac[index][i];
             });
    
@@ -1083,10 +1136,10 @@ function checkDuongLuat(lines) {
    
                 let word = words[pos];
                 let mainVowels = word.split('').filter(char =>
-                    'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(char)
+                    'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(char)
                 );
    
-                let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+                let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(vowel)) ? "T" : "B";
                 return tone === ruleBy[index][i];
             });
             
@@ -1095,10 +1148,10 @@ function checkDuongLuat(lines) {
    
                 let word = words[pos];
                 let mainVowels = word.split('').filter(char =>
-                    'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(char)
+                    'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(char)
                 );
    
-                let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+                let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(vowel)) ? "T" : "B";
                 return tone === ruleTrac[index][i];
             });
    
@@ -1139,10 +1192,10 @@ function checkDuongLuat(lines) {
    
                 let word = words[pos];
                 let mainVowels = word.split('').filter(char =>
-                    'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(char)
+                    'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(char)
                 );
    
-                let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+                let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(vowel)) ? "T" : "B";
                 return tone === ruleBy[index][i];
             });
             
@@ -1151,10 +1204,10 @@ function checkDuongLuat(lines) {
    
                 let word = words[pos];
                 let mainVowels = word.split('').filter(char =>
-                    'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(char)
+                    'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(char)
                 );
    
-                let tone = mainVowels.some(vowel => 'áảãạắẳẵặấẩẫậéẻẽẹếểễệíỉĩịóỏõọốổỗộớởợỡúùủũụýỳỷỹỵứửữự'.includes(vowel)) ? "T" : "B";
+                let tone = mainVowels.some(vowel => 'áảãạâấẫậăắẵặéẻẽẹêếễệíỉĩịóỏõọôốỗộơớỡợúủũụưứữự'.includes(vowel)) ? "T" : "B";
                 return tone === ruleTrac[index][i];
             });
    
@@ -1772,6 +1825,12 @@ window.closePopupFunc = closePopupFunc;
 window.firestoreDb = firestoreDb;
 window.firebaseApp = firebaseApp;
 
+// Export các hàm API phòng thủ cho các file khác sử dụng
+window.apiDefenseSystem = apiDefenseSystem;
+window.fetchGemini = fetchGemini;
+window.callGeminiWithDefense = callGeminiWithDefense;
+window.getApiKeyForGemini = getApiKeyForGemini;
+
 // Khởi tạo hệ thống API phòng thủ khi trang tải xong
 document.addEventListener('DOMContentLoaded', function() {
     console.log('VANW Text Analysis Tool đã sẵn sàng!');
@@ -1782,6 +1841,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`=== HỆ THỐNG API PHÒNG THỦ ĐÃ SẴN SÀNG ===`);
         console.log(`API đang dùng: #${apiInfo.index} (${apiInfo.model})`);
         console.log(`Tổng API hoạt động: ${apiDefenseSystem.workingApis.length}/${apiDefenseSystem.allApis.length}`);
+        console.log(`Nguồn: ${apiInfo.source}`);
     }).catch(error => {
         console.error('Lỗi khởi tạo hệ thống API phòng thủ:', error);
     });
