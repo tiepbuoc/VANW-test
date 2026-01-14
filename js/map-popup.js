@@ -11,281 +11,9 @@ document.addEventListener('DOMContentLoaded', function() {
         measurementId: "G-R7KXTV4G4K"
     };
 
-    // ================== CƠ CHẾ API PHÒNG THỦ ==================
-    class APIDefenseSystem {
-        constructor() {
-            this.reversedPrimaryApiKey = "cbRSGo7aT22YUIRKGY4db94W_uD1rUmkDySazIA";
-            this.primaryModel = "gemini-2.5-flash";
-            this.allApis = [];
-            this.workingApis = [];
-            this.currentApiIndex = -1;
-            this.isInitialized = false;
-        }
-
-        reverseApiKey(reversedKey) {
-            if (!reversedKey || typeof reversedKey !== 'string') {
-                return reversedKey;
-            }
-            return reversedKey.split('').reverse().join('');
-        }
-
-        async initialize() {
-            console.log("=== BẮT ĐẦU KIỂM TRA TẤT CẢ API (âm thầm) ===");
-            
-            this.allApis.push({
-                reversedKey: this.reversedPrimaryApiKey,
-                apiKey: this.reverseApiKey(this.reversedPrimaryApiKey),
-                model: this.primaryModel,
-                isPrimary: true,
-                index: 0
-            });
-            
-            await this.loadBackupApis();
-            await this.testAllApisSequentially();
-            
-            if (this.workingApis.length > 0) {
-                this.currentApiIndex = 0;
-                console.log(`=== ĐÃ CHỌN API HOẠT ĐỘNG: #${this.workingApis[0].index} (âm thầm) ===`);
-                this.isInitialized = true;
-                return this.workingApis[0];
-            } else {
-                console.error("=== KHÔNG CÓ API NÀO HOẠT ĐỘNG! (âm thầm) ===");
-                return null;
-            }
-        }
-
-        async loadBackupApis() {
-            try {
-                const possiblePaths = [
-                    'assets/apiphongthu.txt',
-                ];
-                
-                let response = null;
-                
-                for (const path of possiblePaths) {
-                    try {
-                        response = await fetch(path);
-                        if (response.ok) {
-                            console.log(`✓ Tìm thấy file API dự phòng tại: ${path} (âm thầm)`);
-                            break;
-                        }
-                    } catch (e) {
-                        continue;
-                    }
-                }
-                
-                if (!response || !response.ok) {
-                    console.log("Không tìm thấy file API dự phòng (âm thầm)");
-                    return false;
-                }
-                
-                const text = await response.text();
-                const lines = text.trim().split('\n').filter(line => line.trim() !== '');
-                
-                let index = 1;
-                
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-                    
-                    if (line.includes('AIza') || line.length > 30) {
-                        const reversedKey = line;
-                        const model = (i + 1 < lines.length) ? lines[i + 1].trim() : this.primaryModel;
-                        const normalKey = this.reverseApiKey(reversedKey);
-                        
-                        const isValidKey = normalKey.includes("AIza") || reversedKey.includes("AIza");
-                        
-                        const apiKey = isValidKey ? normalKey : reversedKey;
-                        
-                        this.allApis.push({
-                            reversedKey: reversedKey,
-                            apiKey: apiKey,
-                            model: model,
-                            isPrimary: false,
-                            index: index
-                        });
-                        
-                        console.log(`[API #${index}] Loaded (âm thầm)`);
-                        index++;
-                        i++;
-                    }
-                }
-                
-                if (this.allApis.length <= 1) {
-                    this.addSampleBackupApis();
-                }
-                
-                return true;
-            } catch (error) {
-                console.error('Lỗi khi tải API dự phòng (âm thầm):', error);
-                this.addSampleBackupApis();
-                return false;
-            }
-        }
-
-        addSampleBackupApis() {
-            const sampleApis = [
-                {
-                    reversedKey: "AIzaSyB... (key mẫu 1)",
-                    apiKey: "AIzaSyB... (key mẫu 1)",
-                    model: "gemini-2.5-flash",
-                    index: this.allApis.length
-                }
-            ];
-            
-            sampleApis.forEach(api => {
-                this.allApis.push({
-                    ...api,
-                    isPrimary: false
-                });
-            });
-        }
-
-        async testApiConnection(apiInfo) {
-            try {
-                if (!apiInfo.apiKey || apiInfo.apiKey.length < 20) {
-                    return null;
-                }
-                
-                const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`;
-                
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
-                
-                const response = await fetch(testUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: "Hello"
-                            }]
-                        }]
-                    }),
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (response.ok) {
-                    console.log(`[API #${apiInfo.index}] ✓ HOẠT ĐỘNG (âm thầm)`);
-                    return {
-                        ...apiInfo,
-                        status: 'working'
-                    };
-                }
-                return null;
-            } catch (error) {
-                console.log(`[API #${apiInfo.index}] ✗ LỖI (âm thầm): ${error.message}`);
-                return null;
-            }
-        }
-
-        async testAllApisSequentially() {
-            this.workingApis = [];
-            
-            for (let i = 0; i < this.allApis.length; i++) {
-                const apiInfo = this.allApis[i];
-                const result = await this.testApiConnection(apiInfo);
-                
-                if (result) {
-                    this.workingApis.push(result);
-                }
-                
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-            
-            console.log(`=== KẾT QUẢ KIỂM TRA (âm thầm) ===`);
-            console.log(`✓ API hoạt động: ${this.workingApis.length}/${this.allApis.length} (âm thầm)`);
-        }
-
-        getCurrentApi() {
-            if (this.workingApis.length === 0) return null;
-            return this.workingApis[this.currentApiIndex];
-        }
-
-        async switchToNextApi() {
-            if (this.workingApis.length <= 1) {
-                return false;
-            }
-            
-            const nextIndex = (this.currentApiIndex + 1) % this.workingApis.length;
-            this.currentApiIndex = nextIndex;
-            
-            console.log(`Đã chuyển sang API #${this.workingApis[nextIndex].index} (âm thầm)`);
-            return this.workingApis[nextIndex];
-        }
-
-        async getApiKeyForGemini() {
-            if (this.workingApis.length === 0) {
-                console.error("Không có API nào hoạt động (âm thầm)");
-                return null;
-            }
-            
-            return this.workingApis[this.currentApiIndex].apiKey;
-        }
-
-        async tryAllApisForResponse(prompt) {
-            for (let i = 0; i < this.workingApis.length; i++) {
-                const apiIndex = (this.currentApiIndex + i) % this.workingApis.length;
-                const apiInfo = this.workingApis[apiIndex];
-                
-                console.log(`Thử API #${apiInfo.index} cho Gemini... (âm thầm)`);
-                
-                try {
-                    const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`;
-                    
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 15000);
-                    
-                    const response = await fetch(testUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: prompt
-                                }]
-                            }]
-                        }),
-                        signal: controller.signal
-                    });
-                    
-                    clearTimeout(timeoutId);
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.candidates && data.candidates[0].content.parts[0].text) {
-                            this.currentApiIndex = apiIndex;
-                            console.log(`✓ Thành công với API #${apiInfo.index} (âm thầm)`);
-                            
-                            return {
-                                success: true,
-                                response: data.candidates[0].content.parts[0].text,
-                                apiInfo: apiInfo
-                            };
-                        }
-                    }
-                } catch (error) {
-                    console.log(`✗ API #${apiInfo.index} lỗi: ${error.message} (âm thầm)`);
-                    this.workingApis = this.workingApis.filter(api => api.index !== apiInfo.index);
-                    continue;
-                }
-            }
-            
-            console.log("✗ Tất cả API đều lỗi! (âm thầm)");
-            return {
-                success: false,
-                error: "Tất cả API đều không hoạt động"
-            };
-        }
-    }
-    // ================== END API PHÒNG THỦ ==================
-
+    // KHÔNG còn tạo APIDefenseSystem riêng nữa
+    // Sẽ sử dụng hệ thống API phòng thủ chung từ script.js
+    
     let authors = [];
     let historyData = {};
     let markers = [];
@@ -304,71 +32,87 @@ document.addEventListener('DOMContentLoaded', function() {
     let isSidebarVisible = true;
     let suggestions = null;
     
-    // Thêm biến cho API Defense
-    let apiDefenseSystem = null;
+    // Thêm biến cho API Defense (sẽ sử dụng chung)
     let currentApiKey = null;
 
-    // Khởi tạo API Defense System (âm thầm)
+    // Khởi tạo API Defense System (sử dụng chung từ script.js)
     async function initializeApiDefense() {
-        console.log("🔧 Đang khởi tạo hệ thống API Phòng Thủ...");
-        apiDefenseSystem = new APIDefenseSystem();
-        const result = await apiDefenseSystem.initialize();
+        console.log("🔧 Đang sử dụng hệ thống API Phòng Thủ chung...");
         
-        if (result) {
-            currentApiKey = result.apiKey;
-            console.log(`✅ Hệ thống API Phòng Thủ đã sẵn sàng`);
-            console.log(`   API đang dùng: #${result.index}`);
-            console.log(`   API hoạt động: ${apiDefenseSystem.workingApis.length}/${apiDefenseSystem.allApis.length}`);
+        // Kiểm tra xem hệ thống API phòng thủ chung đã có chưa
+        if (!window.apiDefenseSystem) {
+            console.log("⏳ Hệ thống API Phòng Thủ chung chưa sẵn sàng, đang chờ...");
+            // Chờ một chút để hệ thống chính khởi tạo
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        if (window.apiDefenseSystem && window.apiDefenseSystem.isInitialized) {
+            console.log(`✅ Đang sử dụng hệ thống API Phòng Thủ chung`);
+            console.log(`   API hoạt động: ${window.apiDefenseSystem.workingApis.length}/${window.apiDefenseSystem.allApis.length}`);
+            return true;
         } else {
-            console.warn("⚠️ Hệ thống API Phòng Thủ: Không có API nào hoạt động");
-            currentApiKey = null;
+            console.warn("⚠️ Hệ thống API Phòng Thủ chung chưa sẵn sàng");
+            return false;
         }
     }
 
-    // Hàm lấy API key từ hệ thống phòng thủ
+    // Hàm lấy API key từ hệ thống phòng thủ chung
     async function getApiKeyForGemini() {
-        if (!apiDefenseSystem || !apiDefenseSystem.isInitialized) {
-            await initializeApiDefense();
+        if (!window.apiDefenseSystem || !window.apiDefenseSystem.isInitialized) {
+            const initialized = await initializeApiDefense();
+            if (!initialized) {
+                return null;
+            }
         }
         
-        if (!currentApiKey && apiDefenseSystem) {
-            const apiKey = await apiDefenseSystem.getApiKeyForGemini();
-            if (apiKey) {
-                currentApiKey = apiKey;
-            }
+        if (window.getApiKeyForGemini && typeof window.getApiKeyForGemini === 'function') {
+            currentApiKey = await window.getApiKeyForGemini();
+        } else if (window.apiDefenseSystem) {
+            currentApiKey = await window.apiDefenseSystem.getApiKeyForGemini();
         }
         
         return currentApiKey;
     }
 
-    // Hàm gọi Gemini với cơ chế phòng thủ
+    // Hàm gọi Gemini với cơ chế phòng thủ chung
     async function callGeminiWithDefense(prompt) {
         try {
-            if (!apiDefenseSystem) {
-                await initializeApiDefense();
+            console.log("🔄 Đang sử dụng hệ thống API Phòng Thủ chung để gọi Gemini...");
+            
+            // Sử dụng hàm callGeminiWithDefense chung nếu có
+            if (window.callGeminiWithDefense && typeof window.callGeminiWithDefense === 'function') {
+                const response = await window.callGeminiWithDefense(prompt);
+                console.log("✅ Gemini đã trả lời thành công qua hệ thống API chung");
+                return response;
             }
             
-            if (!apiDefenseSystem || apiDefenseSystem.workingApis.length === 0) {
-                console.error("Không có API nào hoạt động để gọi Gemini");
-                return null;
+            // Fallback: sử dụng fetchGemini chung
+            if (window.fetchGemini && typeof window.fetchGemini === 'function') {
+                const response = await window.fetchGemini(prompt);
+                console.log("✅ Gemini đã trả lời thành công qua fetchGemini chung");
+                return response;
             }
             
-            const result = await apiDefenseSystem.tryAllApisForResponse(prompt);
-            
-            if (result.success) {
-                console.log(`✅ Gemini đã trả lời thành công qua API #${result.apiInfo.index}`);
-                return result.response;
+            // Fallback cuối cùng: sử dụng API defense system trực tiếp
+            if (window.apiDefenseSystem && window.apiDefenseSystem.isInitialized) {
+                const result = await window.apiDefenseSystem.tryAllApisForResponse(prompt);
+                
+                if (result.success) {
+                    console.log(`✅ Gemini đã trả lời thành công qua API #${result.apiInfo.index}`);
+                    return result.response;
+                } else {
+                    console.error("❌ Tất cả API đều thất bại khi gọi Gemini");
+                    return null;
+                }
             } else {
-                console.error("❌ Tất cả API đều thất bại khi gọi Gemini");
+                console.error("Không có hệ thống API nào hoạt động để gọi Gemini");
                 return null;
             }
         } catch (error) {
-            console.error("Lỗi khi gọi Gemini với cơ chế phòng thủ:", error);
+            console.error("Lỗi khi gọi Gemini với cơ chế phòng thủ chung:", error);
             return null;
         }
     }
-
-    const MAP_REVERSED_API_KEY = "cbRSGo7aT22YUIRKGY4db94W_uD1rUmkDySazIA";
 
     const countryNameMap = {
         "Nguyễn Khuyến": "Vietnam",
@@ -1308,8 +1052,8 @@ document.addEventListener('DOMContentLoaded', function() {
             Hãy so sánh về: thời đại sống, phong cách sáng tác, chủ đề chính trong tác phẩm, và ảnh hưởng của họ đến văn học. 
             Trả lời bằng tiếng Việt, không quá 60 từ.`;
             
-            // Sử dụng cơ chế API phòng thủ để gọi Gemini
-            console.log("🔄 Đang sử dụng cơ chế API Phòng Thủ để phân tích liên hệ...");
+            // Sử dụng cơ chế API phòng thủ chung để gọi Gemini
+            console.log("🔄 Đang sử dụng hệ thống API Phòng Thủ chung để phân tích liên hệ...");
             const connectionText = await callGeminiWithDefense(prompt);
             
             if (connectionText) {
@@ -1714,7 +1458,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             setTimeout(async () => {
                 try {
-                    // Khởi tạo hệ thống API phòng thủ âm thầm
+                    // Sử dụng hệ thống API phòng thủ chung
                     console.log("🚀 Bắt đầu khởi tạo hệ thống Bản đồ Văn học...");
                     await initializeApiDefense();
                     
@@ -1724,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     loadCountryGeoData();
                     
                     console.log("✅ Hệ thống Bản đồ Văn học đã sẵn sàng!");
+                    console.log("📡 Đang sử dụng hệ thống API Phòng Thủ chung");
                 } catch (error) {
                     console.error("❌ Lỗi khởi tạo hệ thống:", error);
                 }
@@ -1892,5 +1637,5 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(initMapPopup, 500);
     }
     
-    console.log('Map popup script đã được tải đầy đủ và ĐÃ ĐƯỢC CẬP NHẬT GIỐNG BANDO-L');
+    console.log('Map popup script đã được tải đầy đủ và ĐÃ SỬA ĐỂ SỬ DỤNG HỆ THỐNG API PHÒNG THỦ CHUNG');
 });
