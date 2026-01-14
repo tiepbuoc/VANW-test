@@ -8,765 +8,857 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-:root {
-    --bg-color: #f5f5f5;
-    --card-bg: #ffffff;
-    --card-outline: #b0b0b0;
-    --text-primary: #000000;
-    --text-secondary: #666666;
-    --border-color: #c0c0c0;
-    --button-bg: rgba(0, 0, 0, 0.08);
-    --grid-color: #a0a0a0;
-    --gradient: linear-gradient(135deg, #e37c2d, #f5a742, #f8c34d, #fad859);
-    --primary-color: #e37c2d;
-    --accent-color: #fad859;
-    --shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-    --scrollbar-track: #f0f0f0;
-    --scrollbar-thumb: #c0c0c0;
-    --scrollbar-thumb-hover: #a0a0a0;
-}
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-primary);
-    line-height: 1.6;
-    overflow: hidden;
-    height: 100vh;
-    width: 100vw;
-}
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
-    border-radius: 4px;
-    border: 1px solid var(--card-outline);
-}
-::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border-radius: 4px;
-    border: 1px solid var(--card-outline);
-}
-::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover);
-}
-.map-popup {
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-    position: relative;
-    width: 100%;
-    box-sizing: border-box;
-    z-index: 100;
-}
-.sidebar-toggle-btn {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    transform: translateY(-50%);
-    z-index: 1001;
-    background-color: var(--primary-color);
-    color: white;
-    width: 30px;
-    height: 50px;
-    border-radius: 0 8px 8px 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    cursor: pointer;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
-}
-.sidebar-toggle-btn:hover {
-    background-color: var(--accent-color);
-    transform: translateY(-50%) scale(1.1);
-    border-color: var(--accent-color);
-}
-.map-layout {
-    display: flex;
-    height: 100%;
-    position: relative;
-    width: 100%;
-    z-index: 1;
-}
-.map-sidebar {
-    width: 350px;
-    background-color: var(--card-bg);
-    display: flex;
-    flex-direction: column;
-    border-right: 2px solid var(--border-color);
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 1000;
-    transition: transform 0.3s ease;
-    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.15);
-    overflow: hidden;
-}
-.map-sidebar.hidden {
-    transform: translateX(-100%);
-}
-.map-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-    box-sizing: border-box;
-    background-color: var(--card-bg);
-    position: relative;
-    z-index: 1;
-}
-.map-container {
-    flex-grow: 1;
-    height: 100%;
-    background-color: var(--card-bg);
-    margin: 0;
-    position: relative;
-    overflow: hidden;
-    z-index: 1;
-}
-#map {
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-    z-index: 1;
-}
-.map-controls-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-}
-.map-fixed-controls {
-    padding: 15px;
-    background-color: var(--card-bg);
-    border-bottom: 2px solid var(--border-color);
-    flex-shrink: 0;
-    overflow: visible;
-    position: relative;
-    z-index: 10000;
-}
-.map-scrollable-content {
-    flex: 1;
-    overflow-y: auto;
-    padding-right: 5px;
-    min-height: 200px;
-    position: relative;
-    z-index: 1;
-}
-.search-container {
-    margin-bottom: 15px;
-    position: relative;
-    z-index: 10001;
-}
-.search-input {
-    width: 100%;
-    padding: 12px 15px;
-    border-radius: 8px;
-    border: 2px solid var(--card-outline);
-    background-color: var(--card-bg);
-    color: var(--text-primary);
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
-.search-input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(227, 124, 45, 0.2);
-}
-.advanced-search-btn {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: var(--primary-color);
-    cursor: pointer;
-    font-size: 1.1rem;
-    padding: 5px;
-}
-.advanced-search-panel {
-    display: none;
-    max-height: 500px;
-    overflow-y: auto;
-    padding: 15px;
-    margin-top: 10px;
-    background-color: rgba(227, 124, 45, 0.1);
-    border-radius: 8px;
-    border: 2px solid var(--primary-color);
-}
-.advanced-search-panel.active {
-    display: block;
-}
-.advanced-search-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin-top: 10px;
-}
-.advanced-field {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-}
-.advanced-field label {
-    font-weight: 600;
-    color: var(--primary-color);
-    margin-bottom: 8px;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-.advanced-field select,
-.advanced-field input {
-    padding: 10px 12px;
-    border-radius: 6px;
-    border: 2px solid var(--card-outline);
-    background-color: var(--card-bg);
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    width: 100%;
-    box-sizing: border-box;
-}
-.advanced-field select:focus,
-.advanced-field input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(227, 124, 45, 0.2);
-}
-.advanced-search-actions {
-    display: none;
-}
-.toggle-btn {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 24px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-}
-.toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
-    border-radius: 24px;
-    border: 2px solid #aaa;
-}
-.toggle-slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 4px;
-    bottom: 2px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-    border: 1px solid #ddd;
-}
-.toggle-btn.active .toggle-slider {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-}
-.toggle-btn.active .toggle-slider:before {
-    transform: translateX(26px);
-}
-.slider {
-    width: 100%;
-    margin: 10px 0;
-    -webkit-appearance: none;
-    height: 8px;
-    border-radius: 4px;
-    background: var(--card-outline);
-    outline: none;
-}
-.slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--primary-color);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-.slider::-webkit-slider-thumb:hover {
-    background: var(--accent-color);
-    transform: scale(1.1);
-}
-.location-controls {
-    display: flex;
-    gap: 10px;
-    margin-top: 15px;
-    flex-wrap: wrap;
-}
-.location-controls .control-btn {
-    flex: 1;
-    min-width: 120px;
-    margin-bottom: 0;
-}
-.control-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 10px;
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: left;
-}
-.control-btn:hover {
-    background-color: var(--accent-color);
-    transform: translateY(-2px);
-}
-.control-btn.secondary {
-    background-color: var(--card-outline);
-    color: var(--text-primary);
-}
-.control-btn.secondary:hover {
-    background-color: var(--border-color);
-}
-.control-btn.active {
-    background-color: #28a745;
-    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
-}
-.control-btn.active:hover {
-    background-color: #218838;
-}
-.connection-mode {
-    display: none;
-    padding: 15px;
-    background-color: rgba(227, 124, 45, 0.1);
-    border-radius: 8px;
-    margin-bottom: 15px;
-    border: 2px solid var(--primary-color);
-}
-.selected-author {
-    padding: 10px;
-    background-color: rgba(227, 124, 45, 0.15);
-    border-radius: 6px;
-    margin-bottom: 10px;
-    font-weight: 600;
-    color: var(--primary-color);
-    border: 1px solid rgba(227, 124, 45, 0.3);
-}
-.slider-container {
-    margin-top: 15px;
-    padding: 15px;
-    background-color: var(--card-bg);
-    border-radius: 10px;
-    border: 2px solid var(--card-outline);
-}
-.nearby-authors {
-    max-height: 400px;
-    overflow-y: auto;
-    margin-top: 15px;
-    border-top: 1px solid var(--border-color);
-    padding-top: 10px;
-}
-.nearby-author {
-    padding: 10px 12px;
-    margin: 8px 0;
-    background-color: rgba(227, 124, 45, 0.1);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(227, 124, 45, 0.2);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.nearby-author:hover {
-    background-color: rgba(227, 124, 45, 0.2);
-    transform: translateX(5px);
-}
-.distance-badge {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-.close-nearby {
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-size: 18px;
-    padding: 0 5px;
-    transition: color 0.3s ease;
-    position: absolute;
-    right: 15px;
-    top: 15px;
-}
-.close-nearby:hover {
-    color: var(--primary-color);
-}
-.author-info-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 15px;
-    background-color: var(--card-bg);
-    min-height: 200px;
-    position: relative;
-    z-index: 1;
-}
-.info-section {
-    margin-bottom: 20px;
-    padding: 15px;
-    background-color: rgba(0, 0, 0, 0.05);
-    border-radius: 8px;
-    border-left: 4px solid var(--primary-color);
-}
-.info-label {
-    font-weight: 600;
-    color: var(--primary-color);
-    display: block;
-    margin-bottom: 8px;
-    font-size: 1.1rem;
-}
-.info-value {
-    color: var(--text-primary);
-    line-height: 1.6;
-}
-.short-bio {
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 12px;
-    background-color: rgba(0, 0, 0, 0.03);
-    border-radius: 6px;
-    margin: 10px 0;
-    line-height: 1.6;
-    font-size: 0.95rem;
-    border: 1px solid var(--card-outline);
-}
-.works-list {
-    padding-left: 20px;
-    margin: 10px 0;
-}
-.works-list li {
-    margin-bottom: 5px;
-    padding: 3px 0;
-    color: var(--text-primary);
-}
-.loading-spinner {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid rgba(227, 124, 45, 0.3);
-    border-radius: 50%;
-    border-top-color: var(--primary-color);
-    animation: spin 1s ease-in-out infinite;
-    margin-right: 10px;
-}
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-.firebase-loading {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text-secondary);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-}
-.firebase-loading .loading-spinner {
-    margin-bottom: 15px;
-}
-.map-sidebar::-webkit-scrollbar,
-.map-scrollable-content::-webkit-scrollbar,
-.author-info-content::-webkit-scrollbar,
-.short-bio::-webkit-scrollbar,
-.nearby-authors::-webkit-scrollbar,
-.advanced-search-panel::-webkit-scrollbar {
-    width: 8px;
-}
-.map-sidebar::-webkit-scrollbar-track,
-.map-scrollable-content::-webkit-scrollbar-track,
-.author-info-content::-webkit-scrollbar-track,
-.short-bio::-webkit-scrollbar-track,
-.nearby-authors::-webkit-scrollbar-track,
-.advanced-search-panel::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
-    border-radius: 4px;
-    border: 1px solid var(--card-outline);
-}
-.map-sidebar::-webkit-scrollbar-thumb,
-.map-scrollable-content::-webkit-scrollbar-thumb,
-.author-info-content::-webkit-scrollbar-thumb,
-.short-bio::-webkit-scrollbar-thumb,
-.nearby-authors::-webkit-scrollbar-thumb,
-.advanced-search-panel::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border-radius: 4px;
-    border: 1px solid var(--card-outline);
-}
-.map-sidebar::-webkit-scrollbar-thumb:hover,
-.map-scrollable-content::-webkit-scrollbar-thumb:hover,
-.author-info-content::-webkit-scrollbar-thumb:hover,
-.short-bio::-webkit-scrollbar-thumb:hover,
-.nearby-authors::-webkit-scrollbar-thumb:hover,
-.advanced-search-panel::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover);
-}
-.country-highlight {
-    animation: highlight 2s ease-in-out;
-}
-@keyframes highlight {
-    0% {
-        fill-opacity: 0.2;
-        stroke-width: 2;
-    }
-    50% {
-        fill-opacity: 0.4;
-        stroke-width: 3;
-    }
-    100% {
-        fill-opacity: 0.2;
-        stroke-width: 2;
-    }
-}
-.leaflet-tooltip {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    color: #000;
-    font-weight: bold;
-    text-shadow:
-        -1px -1px 0 white,
-        1px -1px 0 white,
-        -1px 1px 0 white,
-        1px 1px 0 white;
-    padding: 0 !important;
-    font-size: 12px !important;
-    pointer-events: none !important;
-}
-.suggestions {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background-color: var(--card-bg);
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: var(--shadow);
-    z-index: 10002;
-    display: none;
-    max-height: 250px;
-    overflow-y: auto;
-    margin-top: 5px;
-}
-.suggestion-item {
-    padding: 10px 15px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border-color);
-    transition: background-color 0.3s ease;
-}
-.suggestion-item:hover {
-    background-color: rgba(227, 124, 45, 0.1);
-}
-.wiki-search-option {
-    background-color: rgba(227, 124, 45, 0.1);
-    color: var(--primary-color);
-    font-weight: bold;
-    border-top: 2px solid var(--primary-color);
-}
-.century-filter-container {
-    margin-top: 15px;
-    padding: 12px;
-    background-color: rgba(227, 124, 45, 0.08);
-    border-radius: 8px;
-    border: 1px solid rgba(227, 124, 45, 0.2);
-}
-.century-filter-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
-.century-filter-title {
-    font-weight: 600;
-    color: var(--primary-color);
-    font-size: 0.95rem;
-}
-.century-value-display {
-    font-weight: bold;
-    color: var(--primary-color);
-    background-color: white;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.85rem;
-    border: 1px solid rgba(227, 124, 45, 0.3);
-}
-.simple-slider {
-    width: 100%;
-    height: 6px;
-    -webkit-appearance: none;
-    background: linear-gradient(to right, #e37c2d, #fad859);
-    border-radius: 3px;
-    outline: none;
-    margin: 10px 0;
-}
-.simple-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: white;
-    border: 2px solid var(--primary-color);
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-.simple-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.1);
-}
-.century-labels {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 5px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-.century-label {
-    text-align: center;
-    flex: 1;
-}
-.century-label.active {
-    color: var(--primary-color);
-    font-weight: 600;
-}
-.gemini-response {
-    line-height: 1.5;
-    font-size: 0.95rem;
-}
-.gemini-response strong {
-    font-weight: 600;
-    color: var(--primary-color);
-}
-.gemini-response em {
-    font-style: italic;
-}
-.gemini-response u {
-    text-decoration: underline;
-}
-@keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-@keyframes slideOut {
-    from {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-}
-@media (max-width: 768px) {
-    .map-sidebar {
-        width: 85%;
-        max-width: 300px;
-    }
-    .map-container {
-        margin: 0;
-    }
-    .sidebar-toggle-btn {
-        width: 25px;
-        height: 45px;
-        font-size: 0.9rem;
-    }
-    .sidebar-toggle-btn {
-        transition: left 0.3s ease;
-    }
-    .map-sidebar.hidden ~ .sidebar-toggle-btn {
-        left: 0;
-    }
-    .map-sidebar:not(.hidden) ~ .sidebar-toggle-btn {
-        left: 50%;
-        max-left: 300px;
-    }
-    .location-controls {
-        flex-direction: column;
-    }
-    .location-controls .control-btn {
-        min-width: 100%;
-    }
-    .advanced-search-panel {
-        max-height: 400px;
-    }
-    .map-fixed-controls {
-        padding: 10px;
-    }
-    .search-input {
-        padding: 10px 12px;
-        font-size: 0.9rem;
-    }
-    .control-btn {
-        padding: 10px;
-        font-size: 0.8rem;
-    }
-    .info-section {
-        padding: 10px;
-    }
-}
-.map-scrollable-content {
-    max-height: 500px !important;
-    overflow-y: auto !important;
-}
-.map-scrollable-content::-webkit-scrollbar {
-    width: 8px;
-}
-.map-scrollable-content::-webkit-scrollbar-track {
-    background: rgba(227, 124, 45, 0.1);
-    border-radius: 4px;
-}
-.map-scrollable-content::-webkit-scrollbar-thumb {
-    background: var(--primary-color);
-    border-radius: 4px;
-}
-.map-scrollable-content::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-color);
-}
+        /* ========== LOADING SCREEN ========== */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            place-items: center;
+            z-index: 9999;
+            background-color: #f5f5f5;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        
+        .loading-container {
+            text-align: center;
+        }
+        
+        .loading-container h1 {
+            margin-bottom: 30px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            color: #ff6600;
+        }
+        
+        .loading-screen svg {
+            width: 200px;
+            height: 200px;
+        }
+        
+        .loading-screen .dot {
+            transition: cx 0.5s cubic-bezier(0.3, 1.4, 0.4, 1),
+                        cy 0.5s cubic-bezier(0.3, 1.4, 0.4, 1),
+                        r 0.5s cubic-bezier(0.3, 1.4, 0.4, 1);
+        }
+        
+        .loading-screen .dot {
+            fill: #ff8441;
+        }
+        
+        .loading-screen #gooey {
+            transform-origin: 100px 100px;
+            transition: transform 0.5s linear;
+        }
+        
+        .loading-text {
+            color: #ff6600;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 20px;
+            animation: pulse 1.5s infinite;
+            text-align: center;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        /* ========== MAIN STYLES ========== */
+        :root {
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --card-outline: #b0b0b0;
+            --text-primary: #000000;
+            --text-secondary: #666666;
+            --border-color: #c0c0c0;
+            --button-bg: rgba(0, 0, 0, 0.08);
+            --grid-color: #a0a0a0;
+            --gradient: linear-gradient(135deg, #e37c2d, #f5a742, #f8c34d, #fad859);
+            --primary-color: #e37c2d;
+            --accent-color: #fad859;
+            --shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            --scrollbar-track: #f0f0f0;
+            --scrollbar-thumb: #c0c0c0;
+            --scrollbar-thumb-hover: #a0a0a0;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+            border-radius: 4px;
+            border: 1px solid var(--card-outline);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 4px;
+            border: 1px solid var(--card-outline);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+        }
+        .map-popup {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+        .sidebar-toggle-btn {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            z-index: 1001;
+            background-color: var(--primary-color);
+            color: white;
+            width: 30px;
+            height: 50px;
+            border-radius: 0 8px 8px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        .sidebar-toggle-btn:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-50%) scale(1.1);
+            border-color: var(--accent-color);
+        }
+        .map-layout {
+            display: flex;
+            height: 100%;
+            position: relative;
+            width: 100%;
+            z-index: 1;
+        }
+        .map-sidebar {
+            width: 350px;
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid var(--border-color);
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        .map-sidebar.hidden {
+            transform: translateX(-100%);
+        }
+        .map-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            box-sizing: border-box;
+            background-color: var(--card-bg);
+            position: relative;
+            z-index: 1;
+        }
+        .map-container {
+            flex-grow: 1;
+            height: 100%;
+            background-color: var(--card-bg);
+            margin: 0;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 0;
+            z-index: 1;
+        }
+        .map-controls-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+        .map-fixed-controls {
+            padding: 15px;
+            background-color: var(--card-bg);
+            border-bottom: 2px solid var(--border-color);
+            flex-shrink: 0;
+            overflow: visible;
+            position: relative;
+            z-index: 10000;
+        }
+        .map-scrollable-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+            min-height: 200px;
+            position: relative;
+            z-index: 1;
+        }
+        .search-container {
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 10001;
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 2px solid var(--card-outline);
+            background-color: var(--card-bg);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(227, 124, 45, 0.2);
+        }
+        .advanced-search-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 5px;
+        }
+        .advanced-search-panel {
+            display: none;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-top: 10px;
+            background-color: rgba(227, 124, 45, 0.1);
+            border-radius: 8px;
+            border: 2px solid var(--primary-color);
+        }
+        .advanced-search-panel.active {
+            display: block;
+        }
+        .advanced-search-fields {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .advanced-field {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        .advanced-field label {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .advanced-field select,
+        .advanced-field input {
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 2px solid var(--card-outline);
+            background-color: var(--card-bg);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .advanced-field select:focus,
+        .advanced-field input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(227, 124, 45, 0.2);
+        }
+        .advanced-search-actions {
+            display: none;
+        }
+        .toggle-btn {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+            border: 2px solid #aaa;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            border: 1px solid #ddd;
+        }
+        .toggle-btn.active .toggle-slider {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .toggle-btn.active .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        .slider {
+            width: 100%;
+            margin: 10px 0;
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--card-outline);
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .slider::-webkit-slider-thumb:hover {
+            background: var(--accent-color);
+            transform: scale(1.1);
+        }
+        .location-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .location-controls .control-btn {
+            flex: 1;
+            min-width: 120px;
+            margin-bottom: 0;
+        }
+        .control-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+        .control-btn:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-2px);
+        }
+        .control-btn.secondary {
+            background-color: var(--card-outline);
+            color: var(--text-primary);
+        }
+        .control-btn.secondary:hover {
+            background-color: var(--border-color);
+        }
+        .control-btn.active {
+            background-color: #28a745;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
+        }
+        .control-btn.active:hover {
+            background-color: #218838;
+        }
+        .connection-mode {
+            display: none;
+            padding: 15px;
+            background-color: rgba(227, 124, 45, 0.1);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 2px solid var(--primary-color);
+        }
+        .selected-author {
+            padding: 10px;
+            background-color: rgba(227, 124, 45, 0.15);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--primary-color);
+            border: 1px solid rgba(227, 124, 45, 0.3);
+        }
+        .slider-container {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            border: 2px solid var(--card-outline);
+        }
+        .nearby-authors {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 10px;
+        }
+        .nearby-author {
+            padding: 10px 12px;
+            margin: 8px 0;
+            background-color: rgba(227, 124, 45, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(227, 124, 45, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nearby-author:hover {
+            background-color: rgba(227, 124, 45, 0.2);
+            transform: translateX(5px);
+        }
+        .distance-badge {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .close-nearby {
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 18px;
+            padding: 0 5px;
+            transition: color 0.3s ease;
+            position: absolute;
+            right: 15px;
+            top: 15px;
+        }
+        .close-nearby:hover {
+            color: var(--primary-color);
+        }
+        .author-info-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: var(--card-bg);
+            min-height: 200px;
+            position: relative;
+            z-index: 1;
+        }
+        .info-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+        }
+        .info-label {
+            font-weight: 600;
+            color: var(--primary-color);
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        .info-value {
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        .short-bio {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 12px;
+            background-color: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
+            margin: 10px 0;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            border: 1px solid var(--card-outline);
+        }
+        .works-list {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+        .works-list li {
+            margin-bottom: 5px;
+            padding: 3px 0;
+            color: var(--text-primary);
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(227, 124, 45, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .firebase-loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .firebase-loading .loading-spinner {
+            margin-bottom: 15px;
+        }
+        .map-sidebar::-webkit-scrollbar,
+        .map-scrollable-content::-webkit-scrollbar,
+        .author-info-content::-webkit-scrollbar,
+        .short-bio::-webkit-scrollbar,
+        .nearby-authors::-webkit-scrollbar,
+        .advanced-search-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+        .map-sidebar::-webkit-scrollbar-track,
+        .map-scrollable-content::-webkit-scrollbar-track,
+        .author-info-content::-webkit-scrollbar-track,
+        .short-bio::-webkit-scrollbar-track,
+        .nearby-authors::-webkit-scrollbar-track,
+        .advanced-search-panel::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+            border-radius: 4px;
+            border: 1px solid var(--card-outline);
+        }
+        .map-sidebar::-webkit-scrollbar-thumb,
+        .map-scrollable-content::-webkit-scrollbar-thumb,
+        .author-info-content::-webkit-scrollbar-thumb,
+        .short-bio::-webkit-scrollbar-thumb,
+        .nearby-authors::-webkit-scrollbar-thumb,
+        .advanced-search-panel::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 4px;
+            border: 1px solid var(--card-outline);
+        }
+        .map-sidebar::-webkit-scrollbar-thumb:hover,
+        .map-scrollable-content::-webkit-scrollbar-thumb:hover,
+        .author-info-content::-webkit-scrollbar-thumb:hover,
+        .short-bio::-webkit-scrollbar-thumb:hover,
+        .nearby-authors::-webkit-scrollbar-thumb:hover,
+        .advanced-search-panel::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+        }
+        .country-highlight {
+            animation: highlight 2s ease-in-out;
+        }
+        @keyframes highlight {
+            0% {
+                fill-opacity: 0.2;
+                stroke-width: 2;
+            }
+            50% {
+                fill-opacity: 0.4;
+                stroke-width: 3;
+            }
+            100% {
+                fill-opacity: 0.2;
+                stroke-width: 2;
+            }
+        }
+        .leaflet-tooltip {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #000;
+            font-weight: bold;
+            text-shadow:
+                -1px -1px 0 white,
+                1px -1px 0 white,
+                -1px 1px 0 white,
+                1px 1px 0 white;
+            padding: 0 !important;
+            font-size: 12px !important;
+            pointer-events: none !important;
+        }
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            z-index: 10002;
+            display: none;
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 5px;
+        }
+        .suggestion-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            transition: background-color 0.3s ease;
+        }
+        .suggestion-item:hover {
+            background-color: rgba(227, 124, 45, 0.1);
+        }
+        .wiki-search-option {
+            background-color: rgba(227, 124, 45, 0.1);
+            color: var(--primary-color);
+            font-weight: bold;
+            border-top: 2px solid var(--primary-color);
+        }
+        .century-filter-container {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: rgba(227, 124, 45, 0.08);
+            border-radius: 8px;
+            border: 1px solid rgba(227, 124, 45, 0.2);
+        }
+        .century-filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .century-filter-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            font-size: 0.95rem;
+        }
+        .century-value-display {
+            font-weight: bold;
+            color: var(--primary-color);
+            background-color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(227, 124, 45, 0.3);
+        }
+        .simple-slider {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: linear-gradient(to right, #e37c2d, #fad859);
+            border-radius: 3px;
+            outline: none;
+            margin: 10px 0;
+        }
+        .simple-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid var(--primary-color);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .simple-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        .century-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .century-label {
+            text-align: center;
+            flex: 1;
+        }
+        .century-label.active {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        .gemini-response {
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+        .gemini-response strong {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        .gemini-response em {
+            font-style: italic;
+        }
+        .gemini-response u {
+            text-decoration: underline;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        @media (max-width: 768px) {
+            .map-sidebar {
+                width: 85%;
+                max-width: 300px;
+            }
+            .map-container {
+                margin: 0;
+            }
+            .sidebar-toggle-btn {
+                width: 25px;
+                height: 45px;
+                font-size: 0.9rem;
+            }
+            .sidebar-toggle-btn {
+                transition: left 0.3s ease;
+            }
+            .map-sidebar.hidden ~ .sidebar-toggle-btn {
+                left: 0;
+            }
+            .map-sidebar:not(.hidden) ~ .sidebar-toggle-btn {
+                left: 50%;
+                max-left: 300px;
+            }
+            .location-controls {
+                flex-direction: column;
+            }
+            .location-controls .control-btn {
+                min-width: 100%;
+            }
+            .advanced-search-panel {
+                max-height: 400px;
+            }
+            .map-fixed-controls {
+                padding: 10px;
+            }
+            .search-input {
+                padding: 10px 12px;
+                font-size: 0.9rem;
+            }
+            .control-btn {
+                padding: 10px;
+                font-size: 0.8rem;
+            }
+            .info-section {
+                padding: 10px;
+            }
+        }
+        .map-scrollable-content {
+            max-height: 500px !important;
+            overflow-y: auto !important;
+        }
+        .map-scrollable-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .map-scrollable-content::-webkit-scrollbar-track {
+            background: rgba(227, 124, 45, 0.1);
+            border-radius: 4px;
+        }
+        .map-scrollable-content::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+        .map-scrollable-content::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+        
+        /* Ẩn main content khi đang loading */
+        .map-popup {
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .map-popup.visible {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
-    <div class="map-popup">
+    <!-- Màn hình loading -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-container">
+            <svg viewBox="0 0 200 200">
+                <defs>
+                    <filter id="goo">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0
+                                    0 1 0 0 0
+                                    0 0 1 0 0
+                                    0 0 0 20 -10" result="goo" />
+                        <feBlend in="SourceGraphic" in2="goo" />
+                    </filter>
+                </defs>
+                <g id="gooey" filter="url(#goo)">
+                    <circle class="dot" cx="100" cy="100" r="6" />
+                </g>
+            </svg>
+            <div class="loading-text">Đang tải bản đồ văn học...</div>
+        </div>
+    </div>
+    
+    <!-- Nội dung chính -->
+    <div class="map-popup" id="mainContent">
         <button class="sidebar-toggle-btn" id="mapSidebarToggleBtn">
             <i class="fas fa-chevron-right"></i>
         </button>
@@ -881,14 +973,14 @@ body {
     <script src="https://cdn.jsdelivr.net/npm/leaflet.geometryutil@1.3.0/leaflet.geometryutil.min.js"></script>
 
     <script>
-        // ================== CƠ CHẾ API PHÒNG THỦ (THÊM VÀO) ==================
+        // ================== CƠ CHẾ API PHÒNG THỦ ĐÃ SỬA ==================
         class APIDefenseSystem {
             constructor() {
                 this.reversedPrimaryApiKey = "cbRSGo7aT22YUIRKGY4db94W_uD1rUmkDySazIA";
                 this.primaryModel = "gemini-2.5-flash";
                 this.allApis = [];
                 this.workingApis = [];
-                this.currentApiIndex = -1;
+                this.currentApi = null;
                 this.isInitialized = false;
             }
 
@@ -900,8 +992,9 @@ body {
             }
 
             async initialize() {
-                console.log("=== BẮT ĐẦU KIỂM TRA TẤT CẢ API (âm thầm) ===");
+                console.log("=== BẮT ĐẦU KIỂM TRA API (tuần tự) ===");
                 
+                // Thêm API chính
                 this.allApis.push({
                     reversedKey: this.reversedPrimaryApiKey,
                     apiKey: this.reverseApiKey(this.reversedPrimaryApiKey),
@@ -910,16 +1003,18 @@ body {
                     index: 0
                 });
                 
+                // Tải API dự phòng
                 await this.loadBackupApis();
-                await this.testAllApisSequentially();
                 
-                if (this.workingApis.length > 0) {
-                    this.currentApiIndex = 0;
-                    console.log(`=== ĐÃ CHỌN API HOẠT ĐỘNG: #${this.workingApis[0].index} (âm thầm) ===`);
+                // Kiểm tra API tuần tự - CHỈ DUYỆT ĐẾN KHI TÌM THẤY API HOẠT ĐỘNG
+                await this.testApisSequentially();
+                
+                if (this.currentApi) {
+                    console.log(`=== ĐÃ CHỌN API HOẠT ĐỘNG: #${this.currentApi.index} ==`);
                     this.isInitialized = true;
-                    return this.workingApis[0];
+                    return this.currentApi;
                 } else {
-                    console.error("=== KHÔNG CÓ API NÀO HOẠT ĐỘNG! (âm thầm) ===");
+                    console.error("=== KHÔNG CÓ API NÀO HOẠT ĐỘNG! ===");
                     return null;
                 }
             }
@@ -936,7 +1031,7 @@ body {
                         try {
                             response = await fetch(path);
                             if (response.ok) {
-                                console.log(`✓ Tìm thấy file API dự phòng tại: ${path} (âm thầm)`);
+                                console.log(`✓ Tìm thấy file API dự phòng tại: ${path}`);
                                 break;
                             }
                         } catch (e) {
@@ -945,7 +1040,7 @@ body {
                     }
                     
                     if (!response || !response.ok) {
-                        console.log("Không tìm thấy file API dự phòng (âm thầm)");
+                        console.log("Không tìm thấy file API dự phòng");
                         return false;
                     }
                     
@@ -975,7 +1070,7 @@ body {
                                 index: index
                             });
                             
-                            console.log(`[API #${index}] Loaded (âm thầm)`);
+                            console.log(`[API #${index}] Loaded`);
                             index++;
                             i++;
                         }
@@ -987,7 +1082,7 @@ body {
                     
                     return true;
                 } catch (error) {
-                    console.error('Lỗi khi tải API dự phòng (âm thầm):', error);
+                    console.error('Lỗi khi tải API dự phòng:', error);
                     this.addSampleBackupApis();
                     return false;
                 }
@@ -1040,7 +1135,7 @@ body {
                     clearTimeout(timeoutId);
                     
                     if (response.ok) {
-                        console.log(`[API #${apiInfo.index}] ✓ HOẠT ĐỘNG (âm thầm)`);
+                        console.log(`[API #${apiInfo.index}] ✓ HOẠT ĐỘNG`);
                         return {
                             ...apiInfo,
                             status: 'working'
@@ -1048,115 +1143,266 @@ body {
                     }
                     return null;
                 } catch (error) {
-                    console.log(`[API #${apiInfo.index}] ✗ LỖI (âm thầm): ${error.message}`);
+                    console.log(`[API #${apiInfo.index}] ✗ LỖI: ${error.message}`);
                     return null;
                 }
             }
 
-            async testAllApisSequentially() {
-                this.workingApis = [];
-                
+            async testApisSequentially() {
+                // Kiểm tra tuần tự, dừng khi tìm thấy API hoạt động
                 for (let i = 0; i < this.allApis.length; i++) {
                     const apiInfo = this.allApis[i];
+                    console.log(`Đang kiểm tra API #${apiInfo.index}...`);
+                    
                     const result = await this.testApiConnection(apiInfo);
                     
                     if (result) {
+                        this.currentApi = result;
                         this.workingApis.push(result);
+                        console.log(`✓ Đã tìm thấy API hoạt động: #${apiInfo.index} - Dừng kiểm tra`);
+                        break; // DỪNG LẠI NGAY KHI TÌM THẤY API HOẠT ĐỘNG
                     }
                     
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
                 
-                console.log(`=== KẾT QUẢ KIỂM TRA (âm thầm) ===`);
-                console.log(`✓ API hoạt động: ${this.workingApis.length}/${this.allApis.length} (âm thầm)`);
+                console.log(`=== KẾT QUẢ KIỂM TRA ===`);
+                console.log(`✓ API hoạt động: ${this.workingApis.length}/${this.allApis.length}`);
             }
 
             getCurrentApi() {
-                if (this.workingApis.length === 0) return null;
-                return this.workingApis[this.currentApiIndex];
+                return this.currentApi;
             }
 
-            async switchToNextApi() {
-                if (this.workingApis.length <= 1) {
-                    return false;
+            async tryOtherApisForResponse(prompt) {
+                // Nếu đã có API đang hoạt động, thử nó trước
+                if (this.currentApi) {
+                    console.log(`Thử API hiện tại #${this.currentApi.index}...`);
+                    const result = await this.trySingleApi(prompt, this.currentApi);
+                    if (result.success) {
+                        return result;
+                    }
+                    
+                    // Nếu API hiện tại lỗi, loại bỏ khỏi danh sách hoạt động
+                    this.workingApis = this.workingApis.filter(api => api.index !== this.currentApi.index);
+                    console.log(`API #${this.currentApi.index} lỗi, đã loại bỏ`);
+                    this.currentApi = null;
                 }
                 
-                const nextIndex = (this.currentApiIndex + 1) % this.workingApis.length;
-                this.currentApiIndex = nextIndex;
-                
-                console.log(`Đã chuyển sang API #${this.workingApis[nextIndex].index} (âm thầm)`);
-                return this.workingApis[nextIndex];
-            }
-
-            async getApiKeyForGemini() {
-                if (this.workingApis.length === 0) {
-                    console.error("Không có API nào hoạt động (âm thầm)");
-                    return null;
-                }
-                
-                return this.workingApis[this.currentApiIndex].apiKey;
-            }
-
-            async tryAllApisForResponse(prompt) {
-                for (let i = 0; i < this.workingApis.length; i++) {
-                    const apiIndex = (this.currentApiIndex + i) % this.workingApis.length;
-                    const apiInfo = this.workingApis[apiIndex];
+                // Thử các API còn lại
+                for (let i = 0; i < this.allApis.length; i++) {
+                    const apiInfo = this.allApis[i];
                     
-                    console.log(`Thử API #${apiInfo.index} cho Gemini... (âm thầm)`);
-                    
-                    try {
-                        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`;
-                        
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 15000);
-                        
-                        const response = await fetch(testUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                contents: [{
-                                    parts: [{
-                                        text: prompt
-                                    }]
-                                }]
-                            }),
-                            signal: controller.signal
-                        });
-                        
-                        clearTimeout(timeoutId);
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.candidates && data.candidates[0].content.parts[0].text) {
-                                this.currentApiIndex = apiIndex;
-                                console.log(`✓ Thành công với API #${apiInfo.index} (âm thầm)`);
-                                
-                                return {
-                                    success: true,
-                                    response: data.candidates[0].content.parts[0].text,
-                                    apiInfo: apiInfo
-                                };
-                            }
-                        }
-                    } catch (error) {
-                        console.log(`✗ API #${apiInfo.index} lỗi: ${error.message} (âm thầm)`);
-                        this.workingApis = this.workingApis.filter(api => api.index !== apiInfo.index);
+                    // Bỏ qua API đã thử và lỗi
+                    if (this.workingApis.some(api => api.index === apiInfo.index)) {
                         continue;
+                    }
+                    
+                    console.log(`Thử API #${apiInfo.index}...`);
+                    const result = await this.trySingleApi(prompt, apiInfo);
+                    
+                    if (result.success) {
+                        this.currentApi = apiInfo;
+                        this.workingApis.push(apiInfo);
+                        console.log(`✓ Tìm thấy API thay thế: #${apiInfo.index}`);
+                        return result;
                     }
                 }
                 
-                console.log("✗ Tất cả API đều lỗi! (âm thầm)");
+                console.log("✗ Tất cả API đều lỗi!");
                 return {
                     success: false,
                     error: "Tất cả API đều không hoạt động"
                 };
             }
+
+            async trySingleApi(prompt, apiInfo) {
+                try {
+                    const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${apiInfo.model}:generateContent?key=${apiInfo.apiKey}`;
+                    
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 15000);
+                    
+                    const response = await fetch(testUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: prompt
+                                }]
+                            }]
+                        }),
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.candidates && data.candidates[0].content.parts[0].text) {
+                            console.log(`✓ Thành công với API #${apiInfo.index}`);
+                            
+                            return {
+                                success: true,
+                                response: data.candidates[0].content.parts[0].text,
+                                apiInfo: apiInfo
+                            };
+                        }
+                    }
+                    
+                    return {
+                        success: false,
+                        error: "API không trả về kết quả"
+                    };
+                } catch (error) {
+                    console.log(`✗ API #${apiInfo.index} lỗi: ${error.message}`);
+                    return {
+                        success: false,
+                        error: error.message
+                    };
+                }
+            }
         }
         // ================== END API PHÒNG THỦ ==================
 
+        // ================== HÀM LOADING ==================
+        function startLoadingAnimation() {
+            const loadingScreen = document.getElementById('loadingScreen');
+            const mainContent = document.getElementById('mainContent');
+            
+            loadingScreen.style.display = 'grid';
+            loadingScreen.style.opacity = '1';
+            loadingScreen.style.visibility = 'visible';
+            
+            mainContent.style.opacity = '0';
+            mainContent.style.visibility = 'hidden';
+            
+            animateSpinner();
+        }
+        
+        function hideLoadingAnimation() {
+            const loadingScreen = document.getElementById('loadingScreen');
+            const mainContent = document.getElementById('mainContent');
+            
+            loadingScreen.style.opacity = '0';
+            loadingScreen.style.visibility = 'hidden';
+            
+            mainContent.style.opacity = '1';
+            mainContent.style.visibility = 'visible';
+            mainContent.classList.add('visible');
+            
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 500);
+        }
+        
+        function animateSpinner() {
+            const svgGroup = document.querySelector("#gooey");
+            if (!svgGroup) return;
+            
+            let centerDot = svgGroup.querySelector(".dot");
+
+            const spacing = 25;
+
+            function createDot(cx, cy, r) {
+                const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                dot.setAttribute("cx", cx);
+                dot.setAttribute("cy", cy);
+                dot.setAttribute("r", 1);
+                dot.classList.add("dot");
+                svgGroup.appendChild(dot);
+                return dot;
+            }
+
+            svgGroup.querySelectorAll(".dot").forEach((dot) => dot.remove());
+            centerDot = createDot(100, 100, 6);
+
+            const first4 = [
+                { cx: 100, cy: 100 - spacing },
+                { cx: 100, cy: 100 + spacing },
+                { cx: 100 - spacing, cy: 100 },
+                { cx: 100 + spacing, cy: 100 }
+            ];
+
+            const allDots = [];
+
+            first4.forEach((pos) => {
+                const dot = createDot(100, 100, 6);
+                allDots.push(dot);
+                const midX = (100 + pos.cx) / 2;
+                const midY = (100 + pos.cy) / 2;
+                setTimeout(() => {
+                    dot.setAttribute("r", 8);
+                    dot.setAttribute("cx", midX);
+                    dot.setAttribute("cy", midY);
+                }, 50);
+                setTimeout(() => {
+                    dot.setAttribute("r", 6);
+                    dot.setAttribute("cx", pos.cx);
+                    dot.setAttribute("cy", pos.cy);
+                }, 500);
+            });
+
+            setTimeout(() => {
+                const diagSpacing = spacing / Math.sqrt(2);
+                const diagonal = [
+                    { cx: 100 - diagSpacing, cy: 100 - diagSpacing },
+                    { cx: 100 + diagSpacing, cy: 100 - diagSpacing },
+                    { cx: 100 - diagSpacing, cy: 100 + diagSpacing },
+                    { cx: 100 + diagSpacing, cy: 100 + diagSpacing }
+                ];
+                diagonal.forEach((pos) => {
+                    const dot = createDot(100, 100, 6);
+                    allDots.push(dot);
+                    const midX = (100 + pos.cx) / 2;
+                    const midY = (100 + pos.cy) / 2;
+                    setTimeout(() => {
+                        dot.setAttribute("r", 8);
+                        dot.setAttribute("cx", midX);
+                        dot.setAttribute("cy", midY);
+                    }, 50);
+                    setTimeout(() => {
+                        dot.setAttribute("r", 6);
+                        dot.setAttribute("cx", pos.cx);
+                        dot.setAttribute("cy", pos.cy);
+                    }, 500);
+                });
+            }, 1000);
+
+            setTimeout(() => {
+                svgGroup.style.transform = "rotate(360deg)";
+            }, 2500);
+
+            setTimeout(() => {
+                svgGroup.style.transition = "transform 0.5s linear";
+                svgGroup.style.transform = "rotate(0deg)";
+                allDots.forEach((dot) => {
+                    dot.setAttribute("cx", 100);
+                    dot.setAttribute("cy", 100);
+                    dot.setAttribute("r", 6);
+                });
+            }, 3000);
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            // Bắt đầu hiển thị loading
+            startLoadingAnimation();
+            
+            // Khởi tạo hệ thống sau 500ms
+            setTimeout(async () => {
+                try {
+                    await initializeSystem();
+                } catch (error) {
+                    console.error("Lỗi khởi tạo hệ thống:", error);
+                    hideLoadingAnimation();
+                }
+            }, 500);
+        });
+
+        async function initializeSystem() {
             const firebaseConfig = {
                 apiKey: "AIzaSyBHnbro8qUvRyos-BRNdtTRtF0gftKeBEw",
                 authDomain: "bando-239fb.firebaseapp.com",
@@ -1190,54 +1436,36 @@ body {
             
             // Thêm biến cho API Defense
             let apiDefenseSystem = null;
-            let currentApiKey = null;
 
-            // Khởi tạo API Defense System (âm thầm)
+            // Khởi tạo API Defense System
             async function initializeApiDefense() {
                 console.log("🔧 Đang khởi tạo hệ thống API Phòng Thủ...");
                 apiDefenseSystem = new APIDefenseSystem();
                 const result = await apiDefenseSystem.initialize();
                 
                 if (result) {
-                    currentApiKey = result.apiKey;
                     console.log(`✅ Hệ thống API Phòng Thủ đã sẵn sàng`);
                     console.log(`   API đang dùng: #${result.index}`);
-                    console.log(`   API hoạt động: ${apiDefenseSystem.workingApis.length}/${apiDefenseSystem.allApis.length}`);
                 } else {
                     console.warn("⚠️ Hệ thống API Phòng Thủ: Không có API nào hoạt động");
-                    currentApiKey = null;
-                }
-            }
-
-            // Hàm lấy API key từ hệ thống phòng thủ
-            async function getApiKeyForGemini() {
-                if (!apiDefenseSystem || !apiDefenseSystem.isInitialized) {
-                    await initializeApiDefense();
                 }
                 
-                if (!currentApiKey && apiDefenseSystem) {
-                    const apiKey = await apiDefenseSystem.getApiKeyForGemini();
-                    if (apiKey) {
-                        currentApiKey = apiKey;
-                    }
-                }
-                
-                return currentApiKey;
+                return result !== null;
             }
 
             // Hàm gọi Gemini với cơ chế phòng thủ
             async function callGeminiWithDefense(prompt) {
                 try {
                     if (!apiDefenseSystem) {
-                        await initializeApiDefense();
+                        const initialized = await initializeApiDefense();
+                        if (!initialized) {
+                            console.error("Không thể khởi tạo hệ thống API");
+                            return null;
+                        }
                     }
                     
-                    if (!apiDefenseSystem || apiDefenseSystem.workingApis.length === 0) {
-                        console.error("Không có API nào hoạt động để gọi Gemini");
-                        return null;
-                    }
-                    
-                    const result = await apiDefenseSystem.tryAllApisForResponse(prompt);
+                    console.log("🔄 Đang sử dụng cơ chế API Phòng Thủ...");
+                    const result = await apiDefenseSystem.tryOtherApisForResponse(prompt);
                     
                     if (result.success) {
                         console.log(`✅ Gemini đã trả lời thành công qua API #${result.apiInfo.index}`);
@@ -1333,7 +1561,7 @@ body {
                     
                     const contentUrl = `https://vi.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages|info&inprop=url&explaintext=true&exchars=1000&pithumbsize=300&titles=${encodeURIComponent(pageTitle)}&format=json&origin=*`;
                     const contentResponse = await fetch(contentUrl);
-                    const contentData = await response.json();
+                    const contentData = await contentResponse.json();
                     
                     const pageId = Object.keys(contentData.query.pages)[0];
                     const pageInfo = contentData.query.pages[pageId];
@@ -2589,23 +2817,45 @@ body {
                 window.mapPopupShowAuthorInfo(authorId);
             };
 
-            setTimeout(async () => {
+            // Hàm khởi tạo chính
+            async function initialize() {
                 try {
-                    // Khởi tạo hệ thống API phòng thủ âm thầm
                     console.log("🚀 Bắt đầu khởi tạo hệ thống Bản đồ Văn học...");
-                    await initializeApiDefense();
                     
+                    // 1. Khởi tạo hệ thống API phòng thủ
+                    const apiInitialized = await initializeApiDefense();
+                    if (!apiInitialized) {
+                        console.warn("Không có API nào hoạt động, tính năng Gemini có thể không sử dụng được");
+                    }
+                    
+                    // 2. Khởi tạo bản đồ
                     initLeafletMap();
+                    
+                    // 3. Thiết lập event listeners
                     setupMapEventListeners();
-                    loadData();
+                    
+                    // 4. Tải dữ liệu
+                    await loadData();
+                    
+                    // 5. Tải dữ liệu địa lý
                     loadCountryGeoData();
                     
-                    console.log("✅ Hệ thống Bản đồ Văn học đã sẵn sàng!");
+                    // 6. Ẩn loading và hiển thị nội dung
+                    setTimeout(() => {
+                        hideLoadingAnimation();
+                        console.log("✅ Hệ thống Bản đồ Văn học đã sẵn sàng!");
+                    }, 1000);
+                    
                 } catch (error) {
                     console.error("❌ Lỗi khởi tạo hệ thống:", error);
+                    hideLoadingAnimation();
+                    showError('Đã xảy ra lỗi khi khởi tạo hệ thống. Vui lòng tải lại trang.');
                 }
-            }, 200);
-        });
+            }
+
+            // Chạy khởi tạo
+            initialize();
+        }
     </script>
 </body>
 </html>
