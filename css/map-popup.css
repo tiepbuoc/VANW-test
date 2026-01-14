@@ -108,7 +108,6 @@
     overflow: visible;
     position: relative;
     z-index: 10000;
-    height: 100%;
 }
 
 .map-scrollable-content {
@@ -875,4 +874,5 @@
     display: none !important;
 
 }
+
 
