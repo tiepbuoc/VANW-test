@@ -115,6 +115,7 @@
     overflow-y: auto;
     padding-right: 5px;
     min-height: 200px;
+    height: 100%;
     position: relative;
     z-index: 1;
     scrollbar-width: none;
@@ -874,5 +875,6 @@
     display: none !important;
 
 }
+
 
 
