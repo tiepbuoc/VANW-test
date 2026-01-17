@@ -2024,9 +2024,6 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="modal-btn" id="saveEditedExamBtn">
-                    <i class="fas fa-save mr-2"></i> Lưu thay đổi
-                </button>
                 <button class="modal-btn secondary-btn" id="cancelEditBtn">
                     <i class="fas fa-times mr-2"></i> Hủy
                 </button>
@@ -3394,6 +3391,7 @@
             
             setTimeout(() => {
                 initRichTextEditors();
+                initAutoUpdate();
             }, 100);
             
             modal.classList.add('active');
@@ -3414,6 +3412,18 @@
                         </button>
                     </div>
                     
+                    <!-- Preview area -->
+                    <div id="editorPreviewArea" style="margin-bottom: 1.5rem; border: 2px solid var(--card-outline); border-radius: 8px; padding: 1rem; background: rgba(0, 0, 0, 0.02);">
+                        <h4 style="color: var(--primary-color); margin-bottom: 1rem; border-bottom: 1px solid var(--card-outline); padding-bottom: 0.5rem;">
+                            <i class="fas fa-eye mr-2"></i> XEM TRƯỚC ĐỀ THI
+                        </h4>
+                        <div id="editorPreviewContent">
+                            <p style="color: var(--text-secondary); text-align: center; padding: 1rem;">
+                                Thay đổi sẽ được hiển thị tự động tại đây...
+                            </p>
+                        </div>
+                    </div>
+                    
                     <div class="exam-blocks-container" id="examBlocksContainer">
             `;
             
@@ -3424,10 +3434,7 @@
             editorHTML += `
                     </div>
                     
-                    <div class="exam-actions">
-                        <button id="previewEditedExamBtn" class="exam-action-btn preview-btn">
-                            <i class="fas fa-eye mr-2"></i> Xem trước
-                        </button>
+                    <div class="exam-actions" style="margin-top: 2rem;">
                         <button id="saveEditedExamBtn" class="exam-action-btn save-btn">
                             <i class="fas fa-save mr-2"></i> Lưu thay đổi
                         </button>
@@ -3517,24 +3524,33 @@
                     quill: quill,
                     textareaId: textareaId
                 };
-                
-                quill.on('text-change', function() {
-                    if (textarea) {
-                        textarea.value = quill.root.innerHTML;
-                    }
-                });
             });
         }
 
-        function updateExamFromEditor() {
-            const blocksContainer = document.getElementById('examBlocksContainer');
+        function initAutoUpdate() {
+            // Thêm sự kiện cho tất cả các input
+            document.querySelectorAll('.block-title, .block-points-input, .block-type-select').forEach(input => {
+                input.addEventListener('input', updateEditorPreview);
+                input.addEventListener('change', updateEditorPreview);
+            });
             
-            if (!blocksContainer) {
-                return;
-            }
+            // Thêm sự kiện cho các quill editor
+            richTextEditors.forEach(editor => {
+                if (editor.quill) {
+                    editor.quill.on('text-change', updateEditorPreview);
+                }
+            });
+            
+            // Cập nhật preview ngay lần đầu
+            updateEditorPreview();
+        }
+
+        function updateEditorPreview() {
+            // Lưu tạm thời các thay đổi
+            const blocksContainer = document.getElementById('examBlocksContainer');
+            if (!blocksContainer) return;
             
             const blockElements = blocksContainer.querySelectorAll('.exam-block-editor');
-            
             const updatedBlocks = [];
             
             const blockArray = Array.from(blockElements);
@@ -3564,7 +3580,50 @@
                 updatedBlocks.push(blockData);
             });
             
+            // Hiển thị preview
+            const previewContent = document.getElementById('editorPreviewContent');
+            
+            if (previewContent) {
+                let previewHTML = '';
+                let questionCounter = 1;
+                
+                updatedBlocks.forEach((block, index) => {
+                    if (block.type === 'text') {
+                        previewHTML += `
+                            <div style="margin-bottom: 1rem; padding: 1rem; background: rgba(0,0,0,0.02); border-radius: 4px; border-left: 3px solid var(--primary-color);">
+                                <h5 style="margin: 0 0 0.5rem 0; color: var(--primary-color);">${block.title || 'Phần văn bản'}</h5>
+                                <div style="white-space: pre-wrap; font-family: 'Times New Roman', Times, serif;">${markdownToHtml(block.content)}</div>
+                            </div>
+                        `;
+                    } else if (block.type === 'question') {
+                        previewHTML += `
+                            <div style="margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--card-outline); border-radius: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                                    <div style="flex: 1;"><strong>Câu ${questionCounter}:</strong> ${markdownToHtml(block.content)}</div>
+                                    <div style="background: var(--primary-color); color: white; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.8rem; flex-shrink: 0;">${block.points || 1.0} điểm</div>
+                                </div>
+                                <div style="min-height: 40px; border: 1px dashed #ccc; padding: 0.5rem; font-size: 0.9rem; color: #666; background: rgba(0,0,0,0.02);">
+                                    [Khu vực trả lời của thí sinh]
+                                </div>
+                            </div>
+                        `;
+                        questionCounter++;
+                    }
+                });
+                
+                if (previewHTML === '') {
+                    previewHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 1rem;">Chưa có nội dung để hiển thị</p>';
+                }
+                
+                previewContent.innerHTML = previewHTML;
+            }
+            
+            // Lưu các thay đổi vào currentExamBlocks
             currentExamBlocks = updatedBlocks;
+        }
+
+        function updateExamFromEditor() {
+            updateEditorPreview(); // Gọi hàm này để cập nhật currentExamBlocks
         }
 
         function reorderBlocks() {
@@ -3591,36 +3650,83 @@
             const blocksContainer = document.getElementById('examBlocksContainer');
             blocksContainer.insertAdjacentHTML('beforeend', createBlockEditorHTML(newBlock, currentExamBlocks.length - 1));
             
-            initRichTextEditors();
+            // Khởi tạo editor mới
+            const newIndex = currentExamBlocks.length - 1;
+            const editorId = `editor-${newIndex}`;
+            const textareaId = `editor-text-${newIndex}`;
+            
+            const quill = new Quill(`#${editorId}`, {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline'],
+                        [{ 'header': 1 }, { 'header': 2 }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['clean']
+                    ]
+                },
+                placeholder: 'Nhập nội dung...'
+            });
+            
+            richTextEditors[newIndex] = {
+                quill: quill,
+                textareaId: textareaId
+            };
+            
+            // Thêm sự kiện cho editor mới
+            quill.on('text-change', updateEditorPreview);
+            
+            // Thêm sự kiện cho các input mới
+            const blockElement = document.querySelector(`[data-index="${newIndex}"]`);
+            if (blockElement) {
+                blockElement.querySelector('.block-title').addEventListener('input', updateEditorPreview);
+                blockElement.querySelector('.block-type-select').addEventListener('change', updateEditorPreview);
+                const pointsInput = blockElement.querySelector('.block-points-input');
+                if (pointsInput) {
+                    pointsInput.addEventListener('input', updateEditorPreview);
+                }
+            }
+            
+            // Cập nhật preview
+            updateEditorPreview();
         }
 
         function deleteBlock(index) {
             if (currentExamBlocks.length <= 1) {
+                alert('Cần ít nhất một khối nội dung!');
                 return;
             }
             
             currentExamBlocks.splice(index, 1);
+            richTextEditors.splice(index, 1);
             
+            // Tạo lại giao diện
             const editorContainer = document.getElementById('examEditorContainer');
             editorContainer.innerHTML = createExamEditorHTML();
             
             setTimeout(() => {
                 initRichTextEditors();
+                initAutoUpdate();
             }, 100);
         }
 
         function moveBlock(index, direction) {
             if (direction === 'up' && index > 0) {
+                // Hoán đổi vị trí trong mảng
                 [currentExamBlocks[index], currentExamBlocks[index - 1]] = [currentExamBlocks[index - 1], currentExamBlocks[index]];
+                [richTextEditors[index], richTextEditors[index - 1]] = [richTextEditors[index - 1], richTextEditors[index]];
             } else if (direction === 'down' && index < currentExamBlocks.length - 1) {
                 [currentExamBlocks[index], currentExamBlocks[index + 1]] = [currentExamBlocks[index + 1], currentExamBlocks[index]];
+                [richTextEditors[index], richTextEditors[index + 1]] = [richTextEditors[index + 1], richTextEditors[index]];
             }
             
+            // Tạo lại giao diện
             const editorContainer = document.getElementById('examEditorContainer');
             editorContainer.innerHTML = createExamEditorHTML();
             
             setTimeout(() => {
                 initRichTextEditors();
+                initAutoUpdate();
             }, 100);
         }
 
@@ -3914,10 +4020,6 @@
             
             blockyBlocks.push(block);
             renderBlockyBlocks();
-            
-            setTimeout(() => {
-                initBlockyEditor(blockId);
-            }, 100);
         }
 
         function removeBlockyBlock(blockId) {
@@ -3944,23 +4046,19 @@
             }
             
             renderBlockyBlocks();
-            
-            setTimeout(() => {
-                blockyBlocks.forEach(block => {
-                    initBlockyEditor(block.id);
-                });
-            }, 100);
         }
 
         function initBlockyEditor(blockId) {
             const editorContainer = document.querySelector(`[data-block-id="${blockId}"] .blocky-rich-editor`);
             if (!editorContainer) return;
             
+            // Xóa editor cũ nếu tồn tại
             const existingEditor = blockyEditors.find(editor => editor.blockId === blockId);
             if (existingEditor && existingEditor.quill) {
                 existingEditor.quill.root.innerHTML = '';
             }
             
+            // Tạo editor mới với chỉ MỘT toolbar
             const quill = new Quill(editorContainer, {
                 theme: 'snow',
                 modules: {
@@ -4060,6 +4158,7 @@
             
             previewContainer.innerHTML = html;
             
+            // Khởi tạo editors
             setTimeout(() => {
                 blockyBlocks.forEach(block => {
                     initBlockyEditor(block.id);
@@ -4193,7 +4292,6 @@
             const closePreviewBtn = document.getElementById('closePreviewBtn');
             const printPreviewBtn = document.getElementById('printPreviewBtn');
             const cancelEditBtn = document.getElementById('cancelEditBtn');
-            const saveEditedExamBtn = document.getElementById('saveEditedExamBtn');
             
             closeButtons.forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -4213,13 +4311,6 @@
             if (cancelEditBtn) {
                 cancelEditBtn.addEventListener('click', function() {
                     editModal.classList.remove('active');
-                });
-            }
-            
-            if (saveEditedExamBtn) {
-                saveEditedExamBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    saveEditedExam();
                 });
             }
             
@@ -4375,13 +4466,6 @@
                     reorderBlocks();
                 }
                 
-                if (e.target && e.target.id === 'previewEditedExamBtn') {
-                    e.preventDefault();
-                    updateExamFromEditor();
-                    updateExamPreview();
-                    editModal.classList.remove('active');
-                }
-                
                 if (e.target && e.target.closest('.block-btn.delete')) {
                     e.preventDefault();
                     const btn = e.target.closest('.block-btn.delete');
@@ -4406,6 +4490,11 @@
                 if (e.target && e.target.id === 'clearBlocksBtn') {
                     e.preventDefault();
                     clearBlockyBlocks();
+                }
+                
+                if (e.target && e.target.id === 'saveEditedExamBtn') {
+                    e.preventDefault();
+                    saveEditedExam();
                 }
             });
         }
@@ -4603,6 +4692,10 @@
                 .notification-content span {
                     font-size: 1rem;
                     font-weight: 500;
+                }
+                
+                #editExamModal .modal-footer {
+                    display: none;
                 }
             `;
             document.head.appendChild(style);
